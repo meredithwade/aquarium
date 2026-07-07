@@ -62,12 +62,12 @@ footer{color:var(--mist);font-size:12px;margin-top:26px;line-height:1.6;}
 </section>
 
 <section class="tank-sec" id="sec-s">
-<p class="hint"><b>Swirl</b> a finger around her to spin &middot; <b>drag</b> to drift her along</p>
+<p class="hint"><b>Hold both glowing ends</b> with two fingers and <b>swirl</b> &mdash; centrifuge! &middot; swirl one finger nearby to twirl her</p>
 <div class="tankbox" style="background:#02182e;"><canvas id="tank-s"></canvas></div>
 <div class="ctrls">
 <label for="pulse-s">Pulse glow</label>
 <input type="range" id="pulse-s" min="0.3" max="2" step="0.1" value="1">
-<button class="btn" id="spin-s">Spin her</button>
+<button class="btn" id="spin-s">Centrifuge demo</button>
 </div>
 </section>
 
@@ -840,7 +840,11 @@ const SC = PORTRAIT ? 0.72 : 1;
 let t = 0, pulse = 1;
 let pos = {x: W/2, y: H/2}, vel = {x:0, y:0}, targetP = {x: W*0.65, y: H*0.45};
 let rot = 0, omega = 0, glowWave = 0;
-const ptrs = new Map();
+let held = 0, phi = 0, Omega = 0;
+let endA = {x:0, y:0}, endB = {x:0, y:0};
+let grabs = new Map();
+let anchor = null;
+let demoT = -1;
 let bubbles = [], sparks = [], glows = [];
 
 for (let i = 0; i < 30; i++) sparks.push({x: Math.random()*W, y: Math.random()*H, r: 1+Math.random()*2, w: Math.random()*6.28, s: 0.08+Math.random()*0.2});
@@ -848,15 +852,21 @@ for (let i = 0; i < 4; i++) glows.push({x: Math.random()*W, y: Math.random()*H, 
 
 const RX = 190*SC, RY = 104*SC;
 const rows = [];
-for (let i = 0; i < 6; i++) rows.push({v: -0.72+i*0.29, off: Math.random()*6.28, sp: 0.7+Math.random()*0.6});
+for (let i = 0; i < 6; i++) rows.push({v: -0.72+i*0.29, off: Math.random()*6.28, sp: 0.7+Math.random()*0.6, ph: i/6*6.2832});
 const innards = [];
 for (let i = 0; i < 3; i++) innards.push({y0: -0.3+i*0.3, amp: 0.1+Math.random()*0.12, w: Math.random()*6.28});
 
-function spawnBubbles(x, y, n) {
+function tips() {
+  return [
+    {x: pos.x+Math.cos(rot)*RX*0.97, y: pos.y+Math.sin(rot)*RX*0.6},
+    {x: pos.x-Math.cos(rot)*RX*0.97, y: pos.y-Math.sin(rot)*RX*0.6}
+  ];
+}
+function spawnBubbles(x, y, n, sp) {
   for (let i = 0; i < n; i++) bubbles.push({
     x: x+(Math.random()-0.5)*30, y: y+(Math.random()-0.5)*30,
     r: 2.5+Math.random()*6,
-    vx: (Math.random()-0.5)*1.5, vy: -1-Math.random()*1.5,
+    vx: (Math.random()-0.5)*(1.5+(sp||0)), vy: -1-Math.random()*1.5,
     life: 1, w: Math.random()*6.28});
   if (bubbles.length > 160) bubbles = bubbles.slice(-160);
 }
@@ -866,31 +876,67 @@ function pickTarget() {
 }
 pickTarget();
 
+function release() {
+  if (held < 0.5) return;
+  const mx = (endA.x+endB.x)/2, my = (endA.y+endB.y)/2;
+  pos.x = mx; pos.y = my;
+  rot = Math.atan2(endB.y-endA.y, endB.x-endA.x)+Math.PI;
+  omega = Math.max(-0.4, Math.min(0.4, Omega*0.55));
+  Omega = 0;
+  spawnBubbles(mx, my, 8, 2);
+}
+
 function step() {
   t += 0.016;
-  glowWave += 0.016*(0.8+pulse)*(1+Math.abs(omega)*2);
-  const spinning = Math.abs(omega) > 0.02;
-  const dx = targetP.x-pos.x, dy = targetP.y-pos.y;
-  if (Math.hypot(dx, dy) < 60) pickTarget();
-  if (!spinning && ptrs.size === 0) {
-    vel.x += dx*0.00006*pulse;
-    vel.y += dy*0.00006*pulse;
-    const sway = Math.sin(t*(0.9+pulse*0.5));
-    vel.x += Math.cos(rot)*sway*0.012;
-    vel.y += Math.sin(rot)*sway*0.006;
-    rot += Math.sin(t*0.23)*0.0012;
+  glowWave += 0.016*(0.8+pulse)*(1+(Math.abs(omega)+Math.abs(Omega))*2);
+
+  if (demoT >= 0) {
+    demoT += 0.016;
+    const cx = W/2, cy = H/2-40;
+    const wob = Math.min(1, demoT/0.8);
+    const swirl = Math.sin(demoT*5)*26*wob, swirl2 = Math.cos(demoT*5)*26*wob;
+    endA.x += (cx-RX*1.15+swirl-endA.x)*0.2;
+    endA.y += (cy+swirl2-endA.y)*0.2;
+    endB.x += (cx+RX*1.15+swirl-endB.x)*0.2;
+    endB.y += (cy-swirl2-endB.y)*0.2;
+    Omega = Math.min(0.5, Omega+0.004);
+    held = Math.min(1, held+0.08);
+    if (demoT > 4.5) { demoT = -1; release(); held = 0; }
   }
-  vel.x *= 0.985; vel.y *= 0.985;
-  pos.x += vel.x; pos.y += vel.y;
-  pos.x = Math.max(RX+40, Math.min(W-RX-40, pos.x));
-  pos.y = Math.max(RY+50, Math.min(H-RY-50, pos.y));
-  rot += omega;
-  omega *= 0.988;
-  if (Math.abs(omega) > 0.12 && Math.random() < 0.3) {
-    const a = rot+(Math.random() < 0.5 ? 0 : Math.PI);
-    spawnBubbles(pos.x+Math.cos(a)*RX*0.9, pos.y+Math.sin(a)*RX*0.55, 1);
+
+  const isHeld = grabs.size > 0 && [...grabs.values()].some(g => g.end >= 0) || demoT >= 0;
+  if (isHeld) {
+    held = Math.min(1, held+0.08);
+    phi += Omega;
+    Omega *= 0.992;
+    const L = Math.hypot(endB.x-endA.x, endB.y-endA.y);
+    if (Math.abs(Omega) > 0.15 && Math.random() < 0.35) {
+      const u = 0.3+Math.random()*0.4;
+      spawnBubbles(endA.x+(endB.x-endA.x)*u, endA.y+(endB.y-endA.y)*u, 1, 4);
+    }
+    if (L > RX*2.5 && Math.random() < 0.2) spawnBubbles((endA.x+endB.x)/2, (endA.y+endB.y)/2, 1, 1);
+  } else {
+    if (held > 0) held = Math.max(0, held-0.06);
+    const spinning = Math.abs(omega) > 0.02;
+    const dx = targetP.x-pos.x, dy = targetP.y-pos.y;
+    if (Math.hypot(dx, dy) < 60) pickTarget();
+    if (!spinning) {
+      vel.x += dx*0.00006*pulse;
+      vel.y += dy*0.00006*pulse;
+      const sway = Math.sin(t*(0.9+pulse*0.5));
+      vel.x += Math.cos(rot)*sway*0.012;
+      vel.y += Math.sin(rot)*sway*0.006;
+      rot += Math.sin(t*0.23)*0.0012;
+    }
+    vel.x *= 0.985; vel.y *= 0.985;
+    pos.x += vel.x; pos.y += vel.y;
+    pos.x = Math.max(RX+40, Math.min(W-RX-40, pos.x));
+    pos.y = Math.max(RY+50, Math.min(H-RY-50, pos.y));
+    rot += omega;
+    omega *= 0.988;
+    if (Math.random() < 0.012) spawnBubbles(pos.x, pos.y-RY*0.5, 1, 0);
   }
-  if (Math.random() < 0.012) spawnBubbles(pos.x, pos.y-RY*0.5, 1);
+
   bubbles = bubbles.filter(b => b.life > 0 && b.y > -20);
   for (const b of bubbles) { b.x += b.vx+Math.sin(t*3+b.w)*0.5; b.y += b.vy; b.life -= 0.007; }
   for (const s of sparks) { s.y -= s.s; if (s.y < -5) { s.y = H+5; s.x = Math.random()*W; } }
@@ -950,11 +996,6 @@ function drawJelly(alpha, sc, squish) {
     }
     ctx.stroke();
   }
-  ctx.strokeStyle = 'rgba(235,244,255,0.13)';
-  ctx.lineWidth = 9*SC;
-  ctx.beginPath();
-  ctx.ellipse(-RX*0.35*sc, 0, RX*0.42*sc, RY*0.55*sc*squish, 0.15, 0, 6.2832);
-  ctx.stroke();
   for (const row of rows) {
     const vv = row.v;
     const edge = Math.sqrt(Math.max(0.08, 1-vv*vv));
@@ -981,11 +1022,70 @@ function drawJelly(alpha, sc, squish) {
   ctx.strokeStyle = 'rgba(240,247,255,'+0.5*alpha+')';
   ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,255,255,'+0.35*alpha+')';
-  ctx.lineWidth = 4;
+  const tipGlow = 0.35+0.25*Math.abs(Math.sin(t*1.8));
+  for (const s of [-1, 1]) {
+    const g = ctx.createRadialGradient(s*RX*0.97*sc, 0, 0, s*RX*0.97*sc, 0, 26);
+    g.addColorStop(0, 'rgba(255,255,255,'+tipGlow*alpha+')');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(s*RX*0.97*sc, 0, 26, 0, 6.2832); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function drawCentrifuge(alpha) {
+  const ax = endA.x, ay = endA.y, bx = endB.x, by = endB.y;
+  const L = Math.hypot(bx-ax, by-ay) || 1;
+  const ux = (bx-ax)/L, uy = (by-ay)/L;
+  const px2 = -uy, py2 = ux;
+  const stretch = Math.max(0, Math.min(1, (L-RX*1.4)/(RX*1.4)));
+  const R = (RY*1.05-stretch*RY*0.45)*(1+Math.min(0.9, Math.abs(Omega)*2.2));
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(235,242,252,0.06)';
   ctx.beginPath();
-  ctx.ellipse(0, 0, RX*0.99*sc, RY*0.99*sc*squish, 0, -2.7, -1.1);
-  ctx.stroke();
+  ctx.moveTo(ax, ay);
+  ctx.quadraticCurveTo((ax+bx)/2+px2*R*1.15, (ay+by)/2+py2*R*1.15, bx, by);
+  ctx.quadraticCurveTo((ax+bx)/2-px2*R*1.15, (ay+by)/2-py2*R*1.15, ax, ay);
+  ctx.closePath(); ctx.fill();
+  const ghosts = (Math.abs(Omega) > 0.12 && !REDUCED) ? 3 : 0;
+  for (let gI = ghosts; gI >= 0; gI--) {
+    const gPhi = phi-Math.sign(Omega)*gI*0.22;
+    const gA = gI === 0 ? 1 : 0.14;
+    for (const row of rows) {
+      const depth = Math.sin(gPhi+row.ph);
+      const amp = Math.cos(gPhi+row.ph);
+      const front = depth > 0;
+      const baseHue = row.off*57;
+      const grad = ctx.createLinearGradient(ax, ay, bx, by);
+      for (let gs = 0; gs <= 4; gs++) {
+        const u = gs/4;
+        const hue = ((u*240-glowWave*320+baseHue)%360+360)%360;
+        grad.addColorStop(u, 'hsla('+hue+',92%,'+(front?72:55)+'%,'+(front?0.85:0.35)*gA*alpha+')');
+      }
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = front ? 3.4 : 2.2;
+      ctx.beginPath();
+      for (let k = 0; k <= 26; k++) {
+        const u = k/26;
+        const axz = ax+(bx-ax)*u, ayz = ay+(by-ay)*u;
+        const bell = Math.sin(u*Math.PI);
+        const wob2 = Math.sin(u*6.28*1.5+t*3+row.ph)*4*(1-Math.abs(Omega));
+        const off = bell*R*amp+wob2+bell*8*(1-Math.min(1, Math.abs(Omega)*3));
+        const x = axz+px2*off, y = ayz+py2*off;
+        if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+  for (const e of [{x: ax, y: ay}, {x: bx, y: by}]) {
+    const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, 30);
+    g.addColorStop(0, 'rgba(255,255,255,'+0.75*alpha+')');
+    g.addColorStop(0.4, 'rgba(214,226,246,'+0.35*alpha+')');
+    g.addColorStop(1, 'rgba(214,226,246,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(e.x, e.y, 30, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'rgba(240,247,255,'+0.9*alpha+')';
+    ctx.beginPath(); ctx.arc(e.x, e.y, 7, 0, 6.2832); ctx.fill();
+  }
   ctx.globalAlpha = 1;
 }
 
@@ -1012,39 +1112,27 @@ function draw() {
     const squish = 1+Math.sin(t*(1.1+pulse*1.1)+1.2)*0.05*pulse;
     const spd = Math.abs(omega);
 
-    ctx.save();
-    ctx.translate(pos.x, pos.y+Math.sin(t*1.3)*6);
-
-    if (spd > 0.05 && !REDUCED) {
-      const streaks = Math.min(5, Math.floor(spd*30));
-      for (let i = streaks; i >= 1; i--) {
-        ctx.save();
-        ctx.rotate(rot-Math.sign(omega)*i*Math.min(0.22, spd*1.6));
-        drawJelly(0.10, pulseS, squish);
-        ctx.restore();
-      }
+    if (held < 0.999) {
       ctx.save();
-      ctx.rotate(rot);
-      const ringR = RX*1.06;
-      for (let k = 0; k < 60; k++) {
-        const a = k/60*6.2832;
-        const hue = ((a*57-glowWave*320)%360+360)%360;
-        ctx.strokeStyle = 'hsla('+hue+',90%,70%,'+Math.min(0.5, spd*2.2)*Math.abs(Math.sin(a*3+glowWave*6))+')';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, ringR, ringR*0.62, 0, a, a+0.07);
-        ctx.stroke();
+      ctx.translate(pos.x, pos.y+Math.sin(t*1.3)*6);
+      if (spd > 0.05 && !REDUCED) {
+        const streaks = Math.min(5, Math.floor(spd*30));
+        for (let i = streaks; i >= 1; i--) {
+          ctx.save();
+          ctx.rotate(rot-Math.sign(omega)*i*Math.min(0.22, spd*1.6));
+          drawJelly(0.10*(1-held), pulseS, squish);
+          ctx.restore();
+        }
       }
+      ctx.rotate(rot);
+      drawJelly(1-held, pulseS+held*0.1, squish*(1-held*0.3));
       ctx.restore();
     }
-
-    ctx.rotate(rot);
-    drawJelly(1, pulseS, squish);
-    ctx.restore();
+    if (held > 0.001) drawCentrifuge(held);
 
     for (const b of bubbles) drawBubble(b.x, b.y, b.r*b.life, Math.min(1, b.life*1.8));
     step();
-  } catch (err) { omega = 0; }
+  } catch (err) { omega = 0; Omega = 0; grabs.clear(); }
   requestAnimationFrame(draw);
 }
 
@@ -1054,32 +1142,87 @@ function toCanvas(e) {
 }
 cv.addEventListener('pointerdown', e => {
   const p = toCanvas(e);
-  ptrs.set(e.pointerId, {x: p.x, y: p.y, a: Math.atan2(p.y-pos.y, p.x-pos.x)});
   try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+  if (demoT >= 0) demoT = -1;
+  const curTips = held > 0.5 ? [endA, endB] : tips();
+  const dA = Math.hypot(p.x-curTips[0].x, p.y-curTips[0].y);
+  const dB = Math.hypot(p.x-curTips[1].x, p.y-curTips[1].y);
+  const takenEnds = new Set([...grabs.values()].map(g => g.end));
+  let end = -1;
+  if (dA < 100 && dB < 100) end = dA <= dB ? 0 : 1;
+  else if (dA < 100) end = 0;
+  else if (dB < 100) end = 1;
+  if (end >= 0 && takenEnds.has(end)) end = 1-end;
+  if (end >= 0 && !takenEnds.has(end)) {
+    if (grabs.size === 0) {
+      const tp = tips();
+      endA.x = tp[0].x; endA.y = tp[0].y;
+      endB.x = tp[1].x; endB.y = tp[1].y;
+      anchor = {end: 1-end, x: end === 0 ? endB.x : endA.x, y: end === 0 ? endB.y : endA.y};
+    } else anchor = null;
+    grabs.set(e.pointerId, {end, lx: p.x, ly: p.y});
+    spawnBubbles(p.x, p.y, 3, 0);
+    return;
+  }
+  grabs.set(e.pointerId, {end: -1, lx: p.x, ly: p.y});
 });
 cv.addEventListener('pointermove', e => {
-  const prev = ptrs.get(e.pointerId);
-  if (!prev) return;
+  const g = grabs.get(e.pointerId);
+  if (!g) return;
   const p = toCanvas(e);
-  const a = Math.atan2(p.y-pos.y, p.x-pos.x);
-  const d = Math.hypot(p.x-pos.x, p.y-pos.y);
-  let da = a-prev.a;
-  while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832;
-  if (d < 340 && d > 20) {
-    omega += da*0.16;
-    omega = Math.max(-0.45, Math.min(0.45, omega));
+  const dxm = p.x-g.lx, dym = p.y-g.ly;
+  if (g.end >= 0) {
+    const tgt = g.end === 0 ? endA : endB;
+    tgt.x += (p.x-tgt.x)*0.5;
+    tgt.y += (p.y-tgt.y)*0.5;
+    const other = g.end === 0 ? endB : endA;
+    if (anchor && anchor.end !== g.end) {
+      other.x += (anchor.x-other.x)*0.2;
+      other.y += (anchor.y-other.y)*0.2;
+    }
+    const L = Math.hypot(endB.x-endA.x, endB.y-endA.y) || 1;
+    const ux = (endB.x-endA.x)/L, uy = (endB.y-endA.y)/L;
+    const perp = (-uy)*dxm+ux*dym;
+    Omega += perp*(g.end === 0 ? -1 : 1)*0.0045;
+    Omega = Math.max(-0.55, Math.min(0.55, Omega));
+    if (L > RX*2.7) {
+      const mx = (endA.x+endB.x)/2, my = (endA.y+endB.y)/2;
+      endA.x = mx-ux*RX*1.35; endA.y = my-uy*RX*1.35;
+      endB.x = mx+ux*RX*1.35; endB.y = my+uy*RX*1.35;
+    }
+  } else {
+    const d = Math.hypot(p.x-pos.x, p.y-pos.y);
+    const a = Math.atan2(p.y-pos.y, p.x-pos.x);
+    const pa = Math.atan2(g.ly-pos.y, g.lx-pos.x);
+    let da = a-pa;
+    while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832;
+    if (d < 340 && d > 20 && held < 0.5) {
+      omega += da*0.16;
+      omega = Math.max(-0.45, Math.min(0.45, omega));
+    }
+    if (d < 240 && held < 0.5) {
+      vel.x += dxm*0.05;
+      vel.y += dym*0.05;
+    }
   }
-  if (ptrs.size === 1 && d < 240) {
-    vel.x += (p.x-prev.x)*0.05;
-    vel.y += (p.y-prev.y)*0.05;
-  }
-  ptrs.set(e.pointerId, {x: p.x, y: p.y, a});
+  g.lx = p.x; g.ly = p.y;
 });
-function endPtr(e) { ptrs.delete(e.pointerId); }
+function endPtr(e) {
+  grabs.delete(e.pointerId);
+  const hasEnd = [...grabs.values()].some(g => g.end >= 0);
+  if (!hasEnd && held > 0.5 && demoT < 0) { release(); anchor = null; }
+  if (!hasEnd) anchor = null;
+}
 cv.addEventListener('pointerup', endPtr);
 cv.addEventListener('pointercancel', endPtr);
 document.getElementById('pulse-s').addEventListener('input', e => pulse = parseFloat(e.target.value));
-document.getElementById('spin-s').addEventListener('click', () => { omega = 0.4*(Math.random() < 0.5 ? -1 : 1); spawnBubbles(pos.x, pos.y, 10); });
+document.getElementById('spin-s').addEventListener('click', () => {
+  grabs.clear();
+  const tp = tips();
+  endA.x = tp[0].x; endA.y = tp[0].y;
+  endB.x = tp[1].x; endB.y = tp[1].y;
+  demoT = 0; Omega = 0.05;
+});
 draw();
 })();
 </script>
