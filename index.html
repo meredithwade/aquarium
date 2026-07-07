@@ -1,0 +1,1085 @@
+<title>Immortal Aquarium</title>
+<style>
+:root{
+  --ink:#03142a; --water:#02182e; --pearl:#eaf0fa; --mist:#8fa8c7;
+  --lav:#cecbf6; --aqua:#7fd8c9;
+}
+html,body{background:var(--ink);}
+body{font-family:ui-rounded,-apple-system,BlinkMacSystemFont,"SF Pro Rounded",system-ui,sans-serif;color:var(--pearl);margin:0;padding:0 16px 48px;}
+.wrap{max-width:860px;margin:0 auto;}
+header{padding:28px 4px 18px;}
+h1{font-size:26px;font-weight:600;margin:0;letter-spacing:.01em;text-wrap:balance;}
+h1 .spark{background:linear-gradient(100deg,var(--lav),var(--aqua),#f4c0d1);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.sub{color:var(--mist);font-size:14px;margin:6px 0 0;line-height:1.5;max-width:56ch;}
+.tabs{display:flex;gap:8px;margin:18px 0 12px;}
+.tab{flex:1;padding:10px 6px;border-radius:999px;border:1px solid rgba(206,203,246,.25);background:transparent;color:var(--mist);font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;}
+.tab:focus-visible{outline:2px solid var(--aqua);outline-offset:2px;}
+.tab.on{background:rgba(206,203,246,.14);color:var(--pearl);border-color:rgba(206,203,246,.55);}
+.hint{color:var(--mist);font-size:13px;margin:0 0 10px;letter-spacing:.02em;}
+.hint b{color:var(--lav);font-weight:600;}
+.tank-sec{display:none;}
+.tank-sec.on{display:block;}
+.tankbox{border-radius:18px;overflow:hidden;border:1px solid rgba(143,168,199,.22);}
+canvas{width:100%;display:block;touch-action:none;cursor:grab;}
+.ctrls{display:flex;align-items:center;gap:12px;margin-top:12px;}
+.ctrls label{font-size:13px;color:var(--mist);white-space:nowrap;}
+.ctrls input[type=range]{flex:1;accent-color:#a89fe8;min-width:60px;}
+.btn{padding:9px 16px;border-radius:999px;border:1px solid rgba(206,203,246,.4);background:rgba(206,203,246,.1);color:var(--pearl);font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.btn:active{transform:scale(.97);}
+.btn:focus-visible{outline:2px solid var(--aqua);outline-offset:2px;}
+footer{color:var(--mist);font-size:12px;margin-top:26px;line-height:1.6;}
+</style>
+<div class="wrap">
+<header>
+<h1>Immortal <span class="spark">Aquarium</span></h1>
+<p class="sub">Touch prototype — three tankmates, one per tab. Best held in one hand, poked with the other.</p>
+</header>
+
+<div class="tabs" role="tablist">
+<button class="tab on" id="tab-b" role="tab" aria-selected="true">Bubbles</button>
+<button class="tab" id="tab-p" role="tab" aria-selected="false">Poppy</button>
+<button class="tab" id="tab-s" role="tab" aria-selected="false">Slink</button>
+</div>
+
+<section class="tank-sec on" id="sec-b">
+<p class="hint"><b>Pet</b> his head with a finger &middot; <b>pull</b> his body to stretch him</p>
+<div class="tankbox" style="background:#0C447C;"><canvas id="tank-b"></canvas></div>
+<div class="ctrls">
+<label for="energy-b">Swim energy</label>
+<input type="range" id="energy-b" min="0.3" max="2" step="0.1" value="1">
+<button class="btn" id="snack-b">Bubble burst</button>
+</div>
+</section>
+
+<section class="tank-sec" id="sec-p">
+<p class="hint"><b>Double-tap</b> to puff &middot; <b>pinch</b> or press-and-hold to squeeze her</p>
+<div class="tankbox" style="background:#042C53;"><canvas id="tank-p"></canvas></div>
+<div class="ctrls">
+<label for="flutter-p">Fin flutter</label>
+<input type="range" id="flutter-p" min="0.4" max="2" step="0.1" value="1">
+<button class="btn" id="puff-p">Puff up</button>
+</div>
+</section>
+
+<section class="tank-sec" id="sec-s">
+<p class="hint"><b>Swirl</b> a finger around her to spin &middot; <b>drag</b> to drift her along</p>
+<div class="tankbox" style="background:#02182e;"><canvas id="tank-s"></canvas></div>
+<div class="ctrls">
+<label for="pulse-s">Pulse glow</label>
+<input type="range" id="pulse-s" min="0.3" max="2" step="0.1" value="1">
+<button class="btn" id="spin-s">Spin her</button>
+</div>
+</section>
+
+<footer>Gestures from the storyboard: Bubbles sheds bubbles when petted or pulled; Poppy puffs like a balloon and does the Panic Pete eye-pop; Slink is a centripetal spinner. Characters pause when their tab is hidden.</footer>
+</div>
+
+<script>
+const APP = {cur:'b'};
+const PORTRAIT = Math.min(window.innerWidth, window.innerHeight) < 700 && window.innerHeight > window.innerWidth;
+const VW = PORTRAIT ? 760 : 1360, VH = PORTRAIT ? 1050 : 840;
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+for (const k of ['b','p','s']) {
+  document.getElementById('tab-'+k).addEventListener('click', () => {
+    APP.cur = k;
+    for (const j of ['b','p','s']) {
+      document.getElementById('tab-'+j).classList.toggle('on', j===k);
+      document.getElementById('tab-'+j).setAttribute('aria-selected', j===k);
+      document.getElementById('sec-'+j).classList.toggle('on', j===k);
+    }
+  });
+}
+</script>
+
+<script>
+(function(){
+const cv = document.getElementById('tank-b'), ctx = cv.getContext('2d');
+const W = VW, H = VH;
+cv.width = W; cv.height = H;
+const N = 42, SP = PORTRAIT ? 14 : 19;
+const BR = PORTRAIT ? 0.78 : 1;
+let spine = [];
+for (let i = 0; i < N; i++) spine.push({x: W*0.3 - i * SP, y: H/2});
+let head = {x: W*0.3, y: H/2, a: 0};
+let target = {x: W*0.7, y: H*0.45};
+let t = 0, energy = 1, mood = 0;
+let pointer = {x:0, y:0, down:false, seg:-1, lastX:0, lastY:0, petting:0};
+let bubbles = [], ambient = [];
+
+function makeSprite(c0, c1, c2, rim) {
+  const s = document.createElement('canvas'); s.width = s.height = 32;
+  const c = s.getContext('2d');
+  const g = c.createRadialGradient(11, 10, 2, 16, 16, 15);
+  g.addColorStop(0, c0); g.addColorStop(0.55, c1); g.addColorStop(1, c2);
+  c.fillStyle = g;
+  c.beginPath(); c.arc(16, 16, 15, 0, 6.2832); c.fill();
+  c.strokeStyle = rim; c.lineWidth = 1.5;
+  c.beginPath(); c.arc(16, 16, 14.5, 0, 6.2832); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,0.9)';
+  c.beginPath(); c.ellipse(11, 9.5, 4, 2.5, -0.6, 0, 6.2832); c.fill();
+  return s;
+}
+const SPR = [
+  makeSprite('#FAC775', '#EF9F27', '#D85A30', 'rgba(153,60,29,0.6)'),
+  makeSprite('#EF9F27', '#D85A30', '#993C1D', 'rgba(74,27,12,0.6)'),
+  makeSprite('#FFFDF8', '#FAECE7', '#F5C4B3', 'rgba(216,90,48,0.5)'),
+  makeSprite('#FAECE7', '#F5C4B3', '#F0997B', 'rgba(153,60,29,0.5)')
+];
+
+for (let i = 0; i < 26; i++) ambient.push({x: Math.random()*W, y: Math.random()*H, r: 3+Math.random()*9, s: 0.3+Math.random()*0.7, w: Math.random()*6.28});
+
+function radius(i) {
+  const u = i / (N - 1);
+  if (i === 0) return 30 * BR;
+  return (32 * Math.sin(Math.PI * Math.min(1, 0.16 + u * 0.84)) * (1 - u * 0.75) + 4) * BR;
+}
+function isCream(i) { const c = i % 7; return c === 3 || c === 4; }
+
+const foam = [];
+for (let k = 0; k < 2400; k++) {
+  const u = Math.pow(Math.random(), 1.25);
+  const v = (Math.random() * 2 - 1);
+  const s24 = u * 24;
+  const band = (s24 % 2) < 0.9 && u > 0.04;
+  let cream = false;
+  if (band && Math.abs(v) < 0.75) cream = true;
+  if (!band && Math.abs(v) > 0.6 && ((s24 + 1) % 2) < 0.85) cream = true;
+  if (Math.random() < 0.05) cream = !cream;
+  const edge = Math.abs(v) > 0.72;
+  foam.push({u, v, sz: (2.2 + Math.random()*3.6 + (Math.random()<0.06?3:0)) * BR,
+    spr: (cream?2:0)+(edge?1:0), w: Math.random()*6.28,
+    jx: (Math.random()-0.5)*3, jy: (Math.random()-0.5)*3});
+}
+foam.sort((a,b)=>b.u-a.u);
+const headFoam = [];
+for (let k = 0; k < 260; k++) {
+  const ang = Math.random()*6.2832, rr = Math.sqrt(Math.random());
+  headFoam.push({ox: (Math.cos(ang)*rr*34+5)*BR, oy: Math.sin(ang)*rr*27*BR,
+    sz: (2.4+Math.random()*3.8)*BR,
+    spr: (Math.hypot(Math.cos(ang)*rr*34-12, Math.sin(ang)*rr*27)<17?2:0)+(rr>0.8?1:0),
+    w: Math.random()*6.28});
+}
+
+function spawnBubbles(x, y, n, big) {
+  for (let i = 0; i < n; i++) bubbles.push({
+    x: x+(Math.random()-0.5)*40, y: y+(Math.random()-0.5)*40,
+    r: (big?6:3)+Math.random()*(big?14:7),
+    vx: (Math.random()-0.5)*2.5, vy: -1.5-Math.random()*2.5,
+    life: 1, w: Math.random()*6.28});
+  if (bubbles.length > 200) bubbles = bubbles.slice(-200);
+}
+function pickTarget() {
+  target.x = 110 + Math.random()*(W-220);
+  target.y = 110 + Math.random()*(H-220);
+}
+pickTarget();
+
+function step() {
+  t += 0.016;
+  mood = Math.max(0, mood - 0.008);
+  const dx = target.x-head.x, dy = target.y-head.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 90 || !isFinite(dist)) pickTarget();
+  const want = Math.atan2(dy, dx);
+  let da = want - head.a;
+  while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832;
+  head.a += da * 0.03 * energy;
+  const spd = (1.6 + mood*1.2) * energy;
+  head.x += Math.cos(head.a)*spd; head.y += Math.sin(head.a)*spd;
+  head.x = Math.max(50, Math.min(W-50, head.x));
+  head.y = Math.max(50, Math.min(H-50, head.y));
+  spine[0].x = head.x; spine[0].y = head.y;
+  for (let i = 1; i < N; i++) {
+    const p = spine[i], q = spine[i-1];
+    let ex = p.x-q.x, ey = p.y-q.y;
+    const d = Math.hypot(ex, ey) || 1;
+    p.x = q.x + ex/d*SP; p.y = q.y + ey/d*SP;
+  }
+  if (pointer.down && pointer.seg >= 0 && spine[pointer.seg]) {
+    const s = spine[pointer.seg];
+    s.x += (pointer.x-s.x)*0.4; s.y += (pointer.y-s.y)*0.4;
+    for (let i = pointer.seg-1; i >= 1; i--) {
+      const p = spine[i], q = spine[i+1];
+      let ex = p.x-q.x, ey = p.y-q.y;
+      const d = Math.hypot(ex, ey) || 1;
+      if (d > SP) { p.x = q.x+ex/d*SP*1.25; p.y = q.y+ey/d*SP*1.25; }
+    }
+    const pull = Math.hypot(pointer.x-head.x, pointer.y-head.y);
+    if (pointer.seg > 4 && pull > SP*pointer.seg*1.15 && Math.random() < 0.3) {
+      spawnBubbles(s.x, s.y, 2, false); mood = Math.min(1, mood+0.05);
+    }
+    if (pointer.seg <= 3) {
+      const mv = Math.hypot(pointer.x-pointer.lastX, pointer.y-pointer.lastY);
+      pointer.petting = Math.min(1, pointer.petting + mv*0.01);
+      if (mv > 2 && Math.random() < 0.4) { spawnBubbles(head.x, head.y, 2, false); mood = Math.min(1, mood+0.08); }
+    }
+    pointer.lastX = pointer.x; pointer.lastY = pointer.y;
+  } else pointer.petting = Math.max(0, pointer.petting - 0.02);
+  for (const p of spine) if (!isFinite(p.x) || !isFinite(p.y)) { p.x = head.x; p.y = head.y; }
+  if (Math.random() < 0.02) spawnBubbles(head.x+Math.cos(head.a)*30, head.y+Math.sin(head.a)*30, 1, false);
+  bubbles = bubbles.filter(b => b.life > 0 && b.y > -20);
+  for (const b of bubbles) { b.x += b.vx + Math.sin(t*3+b.w)*0.6; b.y += b.vy; b.life -= 0.006; }
+  for (const b of ambient) { b.y -= b.s; b.x += Math.sin(t*2+b.w)*0.3; if (b.y < -15) { b.y = H+15; b.x = Math.random()*W; } }
+}
+
+function drawBubble(x, y, r, alpha) {
+  if (!isFinite(x)||!isFinite(y)||!isFinite(r)||r<=0) return;
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#B5D4F4'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+  ctx.fillStyle = 'rgba(230,241,251,0.18)';
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.beginPath(); ctx.arc(x-r*0.35, y-r*0.35, r*0.25, 0, 6.2832); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+function wavePoint(i) {
+  const p = spine[i];
+  const q = spine[Math.max(0, i-1)], r2 = spine[Math.min(N-1, i+1)];
+  const ang = Math.atan2(r2.y-q.y, r2.x-q.x);
+  const amp = Math.sin(Math.min(1, i/6)*1.5708) * 12 * energy * (1+mood*0.5) * BR;
+  const off = Math.sin(t*6*energy - i*0.45) * amp;
+  return {x: p.x+Math.cos(ang+1.5708)*off, y: p.y+Math.sin(ang+1.5708)*off, ang};
+}
+
+function draw() {
+  if (APP.cur !== 'b') { requestAnimationFrame(draw); return; }
+  try {
+    ctx.fillStyle = '#0C447C'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#185FA5';
+    ctx.beginPath(); ctx.ellipse(W*0.25, H+40, 340, 130, 0, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(W*0.8, H+60, 420, 160, 0, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = '#1D9E75'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+    for (let k = 0; k < 7; k++) {
+      const bx = (k < 4 ? 60+k*(W*0.08) : W-200+(k-4)*50);
+      ctx.beginPath(); ctx.moveTo(bx, H);
+      const hgt = 90+(k%3)*45;
+      ctx.quadraticCurveTo(bx+Math.sin(t*1.5+k)*22, H-hgt*0.6, bx+Math.sin(t*1.5+k)*40, H-hgt);
+      ctx.stroke();
+    }
+    for (const b of ambient) drawBubble(b.x, b.y, b.r, 0.35);
+
+    const pts = [];
+    for (let i = 0; i < N; i++) pts.push(wavePoint(i));
+
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(4,44,83,0.45)';
+    for (let i = N-1; i > 0; i--) {
+      ctx.lineWidth = radius(i)*1.7;
+      ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[i-1].x, pts[i-1].y); ctx.stroke();
+    }
+    for (const f of foam) {
+      const fi = f.u*(N-1);
+      const i0 = Math.floor(fi), i1 = Math.min(N-1, i0+1), fr = fi-i0;
+      const p0 = pts[i0], p1 = pts[i1];
+      const x0 = p0.x+(p1.x-p0.x)*fr, y0 = p0.y+(p1.y-p0.y)*fr;
+      const ang = p0.ang+(p1.ang-p0.ang)*fr;
+      const r = radius(i0)*(1-fr)+radius(i1)*fr;
+      const wob = Math.sin(t*5+f.w);
+      const lat = f.v*r*0.92 + wob*1.2;
+      const x = x0+Math.cos(ang+1.5708)*lat+f.jx;
+      const y = y0+Math.sin(ang+1.5708)*lat+f.jy;
+      const s = f.sz*(1+wob*0.08);
+      ctx.drawImage(SPR[f.spr], x-s, y-s, s*2, s*2);
+    }
+
+    const hp = pts[0], ha = Math.atan2(pts[0].y-pts[1].y, pts[0].x-pts[1].x);
+    ctx.save();
+    ctx.translate(hp.x, hp.y); ctx.rotate(ha); ctx.scale(BR, BR);
+    ctx.fillStyle = 'rgba(4,44,83,0.45)';
+    ctx.beginPath(); ctx.ellipse(5, 0, 36, 29, 0, 0, 6.2832); ctx.fill();
+    for (const f of headFoam) {
+      const wob = Math.sin(t*5+f.w);
+      const s = f.sz*(1+wob*0.08)/BR;
+      ctx.drawImage(SPR[f.spr], f.ox/BR-s+wob, f.oy/BR-s, s*2, s*2);
+    }
+    const happy = mood > 0.3 || pointer.petting > 0.3;
+    for (const s of [-1, 1]) {
+      if (happy) {
+        ctx.strokeStyle = '#4A1B0C'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(14, 13*s, 6.5, Math.PI+0.3, 6.2832-0.3); ctx.stroke();
+      } else {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(14, 13*s, 8, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = '#4A1B0C';
+        const blink = Math.sin(t*0.7) > 0.98 ? 0.2 : 1;
+        ctx.beginPath(); ctx.ellipse(16, 13*s, 4.5, 4.5*blink, 0, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(17.5, 13*s-1.5, 1.6, 0, 6.2832); ctx.fill();
+      }
+    }
+    ctx.strokeStyle = '#4A1B0C'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    if (happy) ctx.arc(30, 0, 5, -1.2, 1.2); else ctx.arc(28, 0, 3.5, -1, 1);
+    ctx.stroke();
+    if (Math.sin(t*1.3) > 0.92) {
+      ctx.strokeStyle = '#993C1D'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(36,0); ctx.lineTo(46,0); ctx.moveTo(46,0); ctx.lineTo(50,-3); ctx.moveTo(46,0); ctx.lineTo(50,3); ctx.stroke();
+    }
+    ctx.restore();
+
+    for (const b of bubbles) drawBubble(b.x, b.y, b.r*b.life, Math.min(1, b.life*2));
+    step();
+  } catch (err) { pointer.down = false; pointer.seg = -1; }
+  requestAnimationFrame(draw);
+}
+
+function toCanvas(e) {
+  const r = cv.getBoundingClientRect();
+  return {x: (e.clientX-r.left)/r.width*W, y: (e.clientY-r.top)/r.height*H};
+}
+cv.addEventListener('pointerdown', e => {
+  const p = toCanvas(e);
+  pointer.x = pointer.lastX = p.x; pointer.y = pointer.lastY = p.y;
+  let best = -1, bd = 80;
+  for (let i = 0; i < N; i++) {
+    const d = Math.hypot(spine[i].x-p.x, spine[i].y-p.y) - radius(i);
+    if (d < bd) { bd = d; best = i; }
+  }
+  pointer.seg = best; pointer.down = true;
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+  if (best >= 0) spawnBubbles(p.x, p.y, 3, false);
+});
+cv.addEventListener('pointermove', e => {
+  if (!pointer.down) return;
+  const p = toCanvas(e);
+  pointer.x = p.x; pointer.y = p.y;
+});
+function up() { pointer.down = false; pointer.seg = -1; }
+cv.addEventListener('pointerup', up);
+cv.addEventListener('pointercancel', up);
+document.getElementById('energy-b').addEventListener('input', e => energy = parseFloat(e.target.value));
+document.getElementById('snack-b').addEventListener('click', () => { spawnBubbles(head.x, head.y, 18, true); mood = 1; pickTarget(); });
+draw();
+})();
+</script>
+
+<script>
+(function(){
+const cv = document.getElementById('tank-p'), ctx = cv.getContext('2d');
+const W = VW, H = VH;
+cv.width = W; cv.height = H;
+const SC = PORTRAIT ? 0.72 : 1;
+let t = 0, flutter = 1;
+let pos = {x: W*0.4, y: H/2}, vel = {x:0, y:0}, targetP = {x: W*0.65, y: H*0.45};
+let facing = 1, tilt = 0, view = 1, restT = 0;
+let puff = 0, puffV = 0, puffT = 0, puffUntil = -1;
+let pop = 0, popV = 0, squeeze = 0;
+let holdStart = -1, lastTap = -1, lastTapX = 0, lastTapY = 0;
+let pinch = {active:false, d0:0};
+const ptrs = new Map();
+let bubbles = [], sparks = [], glows = [];
+
+for (let i = 0; i < 34; i++) sparks.push({x: Math.random()*W, y: Math.random()*H, r: 1+Math.random()*2.2, w: Math.random()*6.28, s: 0.1+Math.random()*0.25});
+for (let i = 0; i < 5; i++) glows.push({x: Math.random()*W, y: Math.random()*H, r: 180+Math.random()*220, hue: Math.random()*360, w: Math.random()*6.28});
+
+function lerp(a, b, u) { return a + (b-a)*u; }
+
+function bodyRad(th, P, V) {
+  const aS = lerp(134, 118, P)*SC, bS = lerp(80, 110, P)*SC;
+  let rS = aS*bS/Math.hypot(bS*Math.cos(th), aS*Math.sin(th));
+  const d = Math.abs(((th % 6.2832)+6.2832)%6.2832 - Math.PI);
+  rS *= 1 - 0.52*(1-P)*Math.exp(-(d*d)/0.5);
+  const aF = lerp(148, 170, P)*SC, bF = lerp(116, 162, P)*SC;
+  let rF = aF*bF/Math.hypot(bF*Math.cos(th), aF*Math.sin(th));
+  rF *= 1 + 0.06*(1-P)*Math.exp(-Math.pow(Math.sin(th)-1, 2)/0.5);
+  return lerp(rS, rF, V);
+}
+
+const TEX = 512;
+function makeSkin(front) {
+  const s = document.createElement('canvas'); s.width = s.height = TEX;
+  const c = s.getContext('2d');
+  const img = c.createImageData(TEX, TEX);
+  const d = img.data;
+  const dark = [[38,33,92],[60,52,137],[31,27,76]];
+  const lite = [[247,245,251],[206,203,246],[181,212,244],[244,192,209],[225,245,238]];
+  function n2(x, y) {
+    return Math.sin(x*5.1+Math.sin(y*3.7)*2.1)+Math.sin(y*4.3+Math.sin(x*2.9)*1.7);
+  }
+  for (let y = 0; y < TEX; y++) {
+    for (let x = 0; x < TEX; x++) {
+      const u = x/TEX, v = y/TEX;
+      let field, belly;
+      if (front) {
+        const d1 = Math.hypot((u-0.33)*1.15, v-0.36);
+        const d2 = Math.hypot((u-0.67)*1.15, v-0.36);
+        const dm = Math.hypot((u-0.5)*0.8, (v-0.74)*1.05);
+        field = Math.min(d1, d2, dm);
+        belly = Math.min(1, Math.max(0, (v-0.62)*4))*Math.min(1, Math.max(0, 1.4-Math.abs(u-0.5)*3.4));
+      } else {
+        const de = Math.hypot((u-0.70)*1.3, v-0.30);
+        const wgt = Math.exp(-de*de*14);
+        field = (v*0.85+u*0.05)*(1-wgt)+de*wgt;
+        belly = Math.min(1, Math.max(0, (v-0.68)*5));
+      }
+      const wob = 0.05*n2(u*6, v*6)+0.02*n2(u*15, v*15);
+      const sVal = Math.sin((field+wob)*60);
+      const edge = Math.min(1, Math.max(0, (sVal-0.05)*3));
+      const patch = n2(u*2.2+9, v*2.2+4);
+      const li = lite[patch>1?3:patch>0.2?1:patch>-0.8?0:patch>-1.5?2:4];
+      const dk = dark[patch>0.5?1:patch>-1?0:2];
+      const grain = (Math.random()-0.5)*14;
+      const mixv = edge*(1-belly*0.88);
+      const i4 = (y*TEX+x)*4;
+      for (let k = 0; k < 3; k++) d[i4+k] = li[k]+(dk[k]-li[k])*mixv+grain;
+      d[i4+3] = 255;
+    }
+  }
+  c.putImageData(img, 0, 0);
+  return s;
+}
+const skinSide = makeSkin(false), skinFront = makeSkin(true);
+
+const spikesEdge = [];
+for (let k = 0; k < 30; k++) {
+  const a = k/30*6.2832+0.1+(Math.random()-0.5)*0.08;
+  spikesEdge.push({a, len: 0.7+Math.random()*0.55, hue: Math.random()*360, w: Math.random()*6.28});
+}
+const spikesFace = [];
+for (let k = 0; k < 30; k++) {
+  const a = Math.random()*6.2832, ro = 0.3+Math.random()*0.6;
+  const fx = Math.cos(a)*ro, fy = Math.sin(a)*ro;
+  if (Math.hypot(fx-0.5, fy+0.34) < 0.28 || Math.hypot(fx+0.5, fy+0.34) < 0.28) continue;
+  if (Math.hypot(fx*0.9, fy-0.5) < 0.34) continue;
+  spikesFace.push({th: a, ro, sz: 0.6+Math.random()*0.5, hue: Math.random()*360, w: Math.random()*6.28});
+}
+
+function spawnBubbles(x, y, n, big) {
+  for (let i = 0; i < n; i++) bubbles.push({
+    x: x+(Math.random()-0.5)*50, y: y+(Math.random()-0.5)*50,
+    r: (big?5:3)+Math.random()*(big?12:6),
+    vx: (Math.random()-0.5)*2.5, vy: -1.5-Math.random()*2.5,
+    life: 1, w: Math.random()*6.28});
+  if (bubbles.length > 160) bubbles = bubbles.slice(-160);
+}
+function doPuff() { puffT = 1; puffUntil = t+4; spawnBubbles(pos.x, pos.y, 14, true); }
+function pickTarget() {
+  targetP.x = 200+Math.random()*(W-400);
+  targetP.y = 170+Math.random()*(H-340);
+}
+pickTarget();
+let nextMove = 3+Math.random()*3;
+
+function step() {
+  t += 0.016;
+  if (puffUntil > 0 && t > puffUntil) { puffT = 0; puffUntil = -1; spawnBubbles(pos.x, pos.y, 8, false); }
+  puffV += (puffT-puff)*0.06; puffV *= 0.9; puff += puffV;
+  const popT = Math.max(squeeze, pinch.active ? 1 : 0);
+  popV += (popT-pop)*0.12; popV *= 0.82; pop += popV;
+  if (holdStart > 0 && t-holdStart > 0.35) squeeze = Math.min(1, squeeze+0.06);
+
+  const drift = puff > 0.5 ? 0.12 : 1;
+  const dx = targetP.x-pos.x, dy = targetP.y-pos.y;
+  const distT = Math.hypot(dx, dy);
+  if (distT < 60) {
+    restT += 0.016;
+    if (restT > nextMove) { restT = 0; nextMove = 2.5+Math.random()*4; pickTarget(); }
+  } else {
+    vel.x += dx*0.00030*flutter*drift;
+    vel.y += dy*0.00030*flutter*drift;
+  }
+  vel.x *= 0.972; vel.y *= 0.972;
+  pos.x += vel.x; pos.y += vel.y;
+  pos.x = Math.max(170*SC+30, Math.min(W-170*SC-30, pos.x));
+  pos.y = Math.max(165*SC+30, Math.min(H-165*SC-30, pos.y));
+  const speed = Math.hypot(vel.x, vel.y);
+  if (Math.abs(vel.x) > 0.2) facing = vel.x > 0 ? 1 : -1;
+  const targetView = (speed < 0.55 || pop > 0.3) ? 1 : 0;
+  view += (targetView-view)*0.035;
+  tilt += ((vel.y*0.05*facing*(1-view))-tilt)*0.05;
+
+  if (puff > 0.5 && Math.random() < 0.05) spawnBubbles(pos.x, pos.y-60, 1, false);
+  if (pop > 0.5 && Math.random() < 0.15) spawnBubbles(pos.x, pos.y-40, 1, false);
+
+  bubbles = bubbles.filter(b => b.life > 0 && b.y > -20);
+  for (const b of bubbles) { b.x += b.vx+Math.sin(t*3+b.w)*0.6; b.y += b.vy; b.life -= 0.007; }
+  for (const s of sparks) { s.y -= s.s; if (s.y < -5) { s.y = H+5; s.x = Math.random()*W; } }
+}
+
+function drawBubble(x, y, r, alpha) {
+  if (!isFinite(x)||!isFinite(y)||!isFinite(r)||r<=0) return;
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#B5D4F4'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+  ctx.fillStyle = 'rgba(230,241,251,0.15)';
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.beginPath(); ctx.arc(x-r*0.35, y-r*0.35, r*0.25, 0, 6.2832); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+function finShape(len, wid, alpha) {
+  const g = ctx.createLinearGradient(0, 0, len, 0);
+  g.addColorStop(0, 'rgba(247,245,251,'+0.6*alpha+')');
+  g.addColorStop(0.55, 'rgba(206,203,246,'+0.35*alpha+')');
+  g.addColorStop(1, 'rgba(181,212,244,'+0.05*alpha+')');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, -wid*0.15);
+  ctx.quadraticCurveTo(len*0.55, -wid*1.1, len, -wid*0.45);
+  ctx.quadraticCurveTo(len*1.05, 0, len, wid*0.45);
+  ctx.quadraticCurveTo(len*0.55, wid*1.1, 0, wid*0.15);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,'+0.28*alpha+')';
+  ctx.lineWidth = 1;
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath(); ctx.moveTo(0, i*wid*0.07);
+    ctx.quadraticCurveTo(len*0.55, i*wid*0.42, len*0.97, i*wid*0.4);
+    ctx.stroke();
+  }
+}
+function spikeCone(bx, by, dax, day, ln, wd, P, hue) {
+  const tx = bx+dax*ln, ty = by+day*ln;
+  const nx = -day, ny = dax;
+  ctx.fillStyle = 'rgba(4,18,43,0.22)';
+  ctx.beginPath(); ctx.ellipse(bx, by, wd*1.5, wd*0.8, Math.atan2(day, dax), 0, 6.2832); ctx.fill();
+  let g = ctx.createLinearGradient(bx+nx*wd, by+ny*wd, bx-nx*wd, by-ny*wd);
+  if (P > 0.3) {
+    g.addColorStop(0, 'hsla('+hue+',70%,88%,0.98)');
+    g.addColorStop(0.45, 'hsla('+hue+',65%,72%,0.95)');
+    g.addColorStop(1, 'rgba(38,33,92,0.9)');
+  } else {
+    g.addColorStop(0, '#F7F5FB');
+    g.addColorStop(0.45, '#CECBF6');
+    g.addColorStop(1, '#3C3489');
+  }
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(bx+nx*wd, by+ny*wd);
+  ctx.lineTo(tx, ty);
+  ctx.lineTo(bx-nx*wd, by-ny*wd);
+  ctx.quadraticCurveTo(bx, by, bx+nx*wd, by+ny*wd);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(bx+nx*wd*0.5, by+ny*wd*0.5); ctx.lineTo(tx, ty); ctx.stroke();
+}
+function drawEye(px, py, er, popAmt, alpha, ex0, ey0) {
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(26,22,64,0.45)';
+  ctx.beginPath(); ctx.ellipse(ex0, ey0+er*0.2, er*1.5, er*1.35, 0, 0, 6.2832); ctx.fill();
+  if (popAmt > 0.05) {
+    const nl = Math.hypot(px-ex0, py-ey0) || 1;
+    ctx.fillStyle = '#E9E5F5';
+    ctx.beginPath();
+    ctx.ellipse((ex0+px)/2, (ey0+py)/2, er*0.75, nl/2+er*0.5, Math.atan2(py-ey0, px-ex0)+1.5708, 0, 6.2832);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(38,33,92,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  const R = er*(1+popAmt*0.42);
+  let ring = ctx.createRadialGradient(px-R*0.2, py-R*0.25, R*0.55, px, py, R*1.38);
+  ring.addColorStop(0, '#FAC775');
+  ring.addColorStop(0.55, '#EF9F27');
+  ring.addColorStop(0.82, '#BA7517');
+  ring.addColorStop(1, 'rgba(99,56,6,0.5)');
+  ctx.fillStyle = ring;
+  ctx.beginPath(); ctx.arc(px, py, R*1.32, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = 'rgba(38,33,92,0.6)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(px, py, R*1.32, 0, 6.2832); ctx.stroke();
+  const ig2 = ctx.createRadialGradient(px-R*0.28, py-R*0.3, R*0.05, px, py, R);
+  ig2.addColorStop(0, '#534AB7');
+  ig2.addColorStop(0.4, '#1d1850');
+  ig2.addColorStop(1, '#04122b');
+  ctx.fillStyle = ig2;
+  ctx.beginPath(); ctx.arc(px, py, R, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = 'hsla('+(t*40%360)+',70%,75%,0.35)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(px, py, R*0.8, 0, 6.2832); ctx.stroke();
+  if (Math.sin(t*0.9+1) > 0.985 && popAmt < 0.2) {
+    ctx.fillStyle = '#B9AEDD';
+    ctx.beginPath(); ctx.arc(px, py, R, 0, 6.2832); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.beginPath(); ctx.arc(px-R*0.32, py-R*0.32, R*0.19, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.beginPath(); ctx.arc(px+R*0.28, py+R*0.3, R*0.1, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(ex0, ey0+er*0.15, er*1.42, 2.3, 4.1); ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  if (APP.cur !== 'p') { requestAnimationFrame(draw); return; }
+  try {
+    ctx.fillStyle = '#042C53'; ctx.fillRect(0, 0, W, H);
+    for (const g of glows) {
+      const hue = (g.hue+t*12)%360;
+      const gx = g.x+Math.sin(t*0.3+g.w)*40, gy = g.y+Math.cos(t*0.25+g.w)*30;
+      const gr = ctx.createRadialGradient(gx, gy, 0, gx, gy, g.r);
+      gr.addColorStop(0, 'hsla('+hue+',70%,72%,0.10)');
+      gr.addColorStop(1, 'hsla('+hue+',70%,72%,0)');
+      ctx.fillStyle = gr;
+      ctx.beginPath(); ctx.arc(gx, gy, g.r, 0, 6.2832); ctx.fill();
+    }
+    for (const s of sparks) {
+      const tw = 0.3+0.7*Math.abs(Math.sin(t*2+s.w));
+      ctx.fillStyle = 'rgba(230,241,251,'+0.5*tw+')';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r*tw, 0, 6.2832); ctx.fill();
+    }
+
+    const P = puff, V = view;
+    const bob = Math.sin(t*1.6)*7;
+    const flap = Math.sin(t*(10+flutter*8));
+
+    ctx.save();
+    ctx.translate(pos.x, pos.y+bob);
+    ctx.rotate(tilt);
+    ctx.scale(facing*(1-squeeze*0.08), 1+squeeze*0.06);
+
+    const outline = [];
+    for (let k = 0; k < 80; k++) {
+      const th = k/80*6.2832;
+      const r = bodyRad(th, P, V);
+      outline.push({x: Math.cos(th)*r, y: Math.sin(th)*r});
+    }
+    const maxRX = bodyRad(0, P, V), maxRY = bodyRad(1.5708, P, V);
+
+    const tailA = 1-V;
+    if (tailA > 0.03) {
+      ctx.globalAlpha = tailA;
+      ctx.save();
+      ctx.translate(-bodyRad(Math.PI, P, V)+6, 0);
+      ctx.rotate(Math.PI+Math.sin(t*(6+flutter*5))*0.28*(1-P*0.7));
+      finShape(68*SC*(1-P*0.25)*(0.4+0.6*tailA), 36*SC, 0.95);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+    ctx.save(); ctx.translate(lerp(8, 0, V), -maxRY*0.94); ctx.rotate(-1.62+flap*0.22); finShape(42*SC*(1-P*0.3), 20*SC, 0.85); ctx.restore();
+
+    const pxNear = lerp(maxRX*0.34, maxRX*0.9, V), pxFar = lerp(-maxRX*0.6, -maxRX*0.9, V);
+    if (V > 0.15) {
+      ctx.save(); ctx.translate(pxFar, maxRY*0.06); ctx.rotate(Math.PI-0.35-flap*0.4);
+      ctx.globalAlpha = V; finShape(64*SC, 30*SC, 0.9); ctx.globalAlpha = 1; ctx.restore();
+    }
+
+    for (const s of spikesEdge) {
+      const rr = bodyRad(s.a, P, V);
+      const ca = Math.cos(s.a), sa = Math.sin(s.a);
+      const d = Math.abs(((s.a%6.2832)+6.2832)%6.2832 - Math.PI);
+      if (V < 0.5 && d < 0.45) continue;
+      const bx = ca*rr*0.985, by = sa*rr*0.985;
+      const ln = ((12+s.len*11)+P*46*s.len+Math.sin(t*3+s.w)*2*P)*SC;
+      const wd = (5+P*1.5)*SC;
+      spikeCone(bx, by, ca, sa, ln, wd, P, (s.hue+t*30)%360);
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(outline[0].x, outline[0].y);
+    for (const p of outline) ctx.lineTo(p.x, p.y);
+    ctx.closePath();
+    ctx.save();
+    ctx.clip();
+    const tw2 = maxRX*2.16, th2 = maxRY*2.3;
+    const ox = -tw2/2-vel.x*5, oy = -th2/2-maxRY*0.05-vel.y*5;
+    if (V < 0.999) ctx.drawImage(skinSide, ox, oy, tw2, th2);
+    if (V > 0.001) {
+      ctx.globalAlpha = V;
+      ctx.drawImage(skinFront, ox, oy, tw2, th2);
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.globalCompositeOperation = 'multiply';
+    const lx = lerp(maxRX*0.05, -maxRX*0.15, V);
+    let sh = ctx.createRadialGradient(lx, -maxRY*0.32, maxRY*0.2, 0, 0, Math.max(maxRX, maxRY)*1.15);
+    sh.addColorStop(0, '#ffffff');
+    sh.addColorStop(0.6, '#eae5f3');
+    sh.addColorStop(0.85, '#9a90c9');
+    sh.addColorStop(1, '#4a4183');
+    ctx.fillStyle = sh; ctx.fillRect(-maxRX*1.2, -maxRY*1.2, maxRX*2.4, maxRY*2.4);
+    let ao = ctx.createLinearGradient(0, maxRY*0.3, 0, maxRY);
+    ao.addColorStop(0, '#ffffff'); ao.addColorStop(1, '#cfc8e6');
+    ctx.fillStyle = ao; ctx.fillRect(-maxRX*1.2, 0, maxRX*2.4, maxRY*1.2);
+
+    ctx.globalCompositeOperation = 'screen';
+    let sp = ctx.createRadialGradient(lx, -maxRY*0.45, 5, lx, -maxRY*0.45, maxRX*0.6);
+    sp.addColorStop(0, 'rgba(255,255,255,0.5)');
+    sp.addColorStop(0.4, 'rgba(220,215,245,0.16)');
+    sp.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sp; ctx.fillRect(-maxRX*1.2, -maxRY*1.2, maxRX*2.4, maxRY*2.4);
+    for (let i = 0; i < 3; i++) {
+      const hue = (t*18+i*120)%360;
+      const sx = Math.sin(t*0.5+i*2.1)*maxRX*0.5, sy = Math.cos(t*0.4+i*1.7)*maxRY*0.4;
+      const ig = ctx.createRadialGradient(sx, sy, 0, sx, sy, maxRX*0.6);
+      ig.addColorStop(0, 'hsla('+hue+',80%,70%,0.10)');
+      ig.addColorStop(1, 'hsla('+hue+',80%,70%,0)');
+      ctx.fillStyle = ig;
+      ctx.beginPath(); ctx.arc(sx, sy, maxRX*0.65, 0, 6.2832); ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+
+    const aim = Math.max(P, V*0.9);
+    for (const s of spikesFace) {
+      const rr = bodyRad(s.th, P, V);
+      const bx = Math.cos(s.th)*s.ro*rr, by = Math.sin(s.th)*s.ro*rr;
+      const restA = Math.PI+(by > 0 ? -0.3 : 0.3);
+      let dax = Math.cos(restA)*(1-aim)+Math.cos(s.th)*aim;
+      let day = Math.sin(restA)*(1-aim)+Math.sin(s.th)*aim;
+      const dl = Math.hypot(dax, day) || 1; dax /= dl; day /= dl;
+      const ln = ((9+s.sz*7)*(1-P*0.2)+P*30*s.sz)*SC;
+      const wd = (3+P*1.5)*SC;
+      spikeCone(bx, by, dax, day, ln, wd, P, (s.hue+t*30)%360);
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.32)'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let k = 44; k <= 68; k++) {
+      const p = outline[k%80];
+      if (k === 44) ctx.moveTo(p.x*0.99, p.y*0.99); else ctx.lineTo(p.x*0.99, p.y*0.99);
+    }
+    ctx.stroke();
+
+    if (V < 0.85) {
+      ctx.globalAlpha = 1-V;
+      ctx.strokeStyle = 'rgba(38,33,92,0.5)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(maxRX*0.3, 8, 30*SC, 1.9, 2.9); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.save();
+    ctx.translate(pxNear, lerp(12, maxRY*0.06, V));
+    ctx.rotate(lerp(-0.35, 0.35, V)+flap*(0.55-0.15*V));
+    finShape(lerp(48, 64, V)*SC*(1-P*0.2), lerp(21, 30, V)*SC, 0.95);
+    ctx.restore();
+
+    const er = lerp(23, 26, V)*(1+P*0.1)*SC;
+    const nEx = lerp(bodyRad(-0.62, P, V)*Math.cos(-0.62)*0.62, maxRX*0.5, V);
+    const nEy = lerp(bodyRad(-0.62, P, V)*Math.sin(-0.62)*0.62, -maxRY*0.34, V);
+    const fEx = lerp(-maxRX*0.55, -maxRX*0.5, V);
+    const fEy = -maxRY*0.34;
+    const nn = Math.hypot(nEx, nEy) || 1, fn = Math.hypot(fEx, fEy) || 1;
+    const off = pop*er*1.8;
+    const farA = Math.max(0, Math.min(1, (V-0.35)/0.5));
+    if (farA > 0.01) drawEye(fEx+fEx/fn*off, fEy+fEy/fn*off, er*lerp(0.9, 1, V), pop, farA, fEx, fEy);
+    drawEye(nEx+nEx/nn*off, nEy+nEy/nn*off, er, pop, 1, nEx, nEy);
+
+    const mx = lerp(bodyRad(0.32, P, V)*Math.cos(0.32)*0.97, 0, V);
+    const my = lerp(bodyRad(0.32, P, V)*Math.sin(0.32)*0.97, maxRY*0.5, V);
+    const mw = lerp(26, maxRX*0.4, V)*(1+P*0.1+pop*0.05);
+    const mrot = lerp(0.35, 0, V);
+    ctx.save();
+    ctx.translate(mx, my); ctx.rotate(mrot); ctx.scale(SC, SC);
+    const mwl = mw/SC;
+    ctx.fillStyle = 'rgba(26,22,64,0.3)';
+    ctx.beginPath(); ctx.ellipse(0, 8, mwl*1.1, 16, 0, 0, 6.2832); ctx.fill();
+    let lipg = ctx.createLinearGradient(0, -18, 0, 20);
+    lipg.addColorStop(0, '#F7F1F4');
+    lipg.addColorStop(0.5, '#EDD8E2');
+    lipg.addColorStop(1, '#C9AEC4');
+    ctx.fillStyle = lipg;
+    ctx.beginPath();
+    ctx.moveTo(-mwl, 0);
+    ctx.quadraticCurveTo(-mwl*0.5, -18, 0, -17);
+    ctx.quadraticCurveTo(mwl*0.5, -18, mwl, 0);
+    ctx.quadraticCurveTo(mwl*0.5, 20, 0, 19);
+    ctx.quadraticCurveTo(-mwl*0.5, 20, -mwl, 0);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(114,36,62,0.55)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-mwl*0.85, 1);
+    ctx.quadraticCurveTo(0, 7+P*4, mwl*0.85, 1);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.ellipse(-mwl*0.22, -9, mwl*0.28, 4.5, -0.08, 0, 6.2832); ctx.fill();
+    ctx.restore();
+
+    ctx.restore();
+
+    for (const b of bubbles) drawBubble(b.x, b.y, b.r*b.life, Math.min(1, b.life*2));
+    step();
+  } catch (err) { holdStart = -1; squeeze = 0; }
+  requestAnimationFrame(draw);
+}
+
+function toCanvas(e) {
+  const r = cv.getBoundingClientRect();
+  return {x: (e.clientX-r.left)/r.width*W, y: (e.clientY-r.top)/r.height*H};
+}
+cv.addEventListener('pointerdown', e => {
+  const p = toCanvas(e);
+  ptrs.set(e.pointerId, p);
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+  if (ptrs.size === 2) {
+    const vals = [...ptrs.values()];
+    pinch.active = true; pinch.d0 = Math.hypot(vals[0].x-vals[1].x, vals[0].y-vals[1].y);
+    holdStart = -1;
+    return;
+  }
+  const near = Math.hypot(p.x-pos.x, p.y-pos.y) < 260;
+  if (near) {
+    if (t-lastTap < 0.45 && Math.hypot(p.x-lastTapX, p.y-lastTapY) < 110) { doPuff(); lastTap = -1; }
+    else { lastTap = t; lastTapX = p.x; lastTapY = p.y; holdStart = t; }
+    spawnBubbles(p.x, p.y, 2, false);
+  }
+});
+cv.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, toCanvas(e));
+  if (pinch.active && ptrs.size === 2) {
+    const vals = [...ptrs.values()];
+    const d = Math.hypot(vals[0].x-vals[1].x, vals[0].y-vals[1].y);
+    squeeze = Math.max(0, Math.min(1, (pinch.d0-d)/120));
+  }
+});
+function endPtr(e) {
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinch.active = false;
+  if (ptrs.size === 0) { holdStart = -1; squeeze = 0; }
+}
+cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointercancel', endPtr);
+document.getElementById('flutter-p').addEventListener('input', e => flutter = parseFloat(e.target.value));
+document.getElementById('puff-p').addEventListener('click', doPuff);
+draw();
+})();
+</script>
+
+<script>
+(function(){
+const cv = document.getElementById('tank-s'), ctx = cv.getContext('2d');
+const W = VW, H = VH;
+cv.width = W; cv.height = H;
+const SC = PORTRAIT ? 0.72 : 1;
+let t = 0, pulse = 1;
+let pos = {x: W/2, y: H/2}, vel = {x:0, y:0}, targetP = {x: W*0.65, y: H*0.45};
+let rot = 0, omega = 0, glowWave = 0;
+const ptrs = new Map();
+let bubbles = [], sparks = [], glows = [];
+
+for (let i = 0; i < 30; i++) sparks.push({x: Math.random()*W, y: Math.random()*H, r: 1+Math.random()*2, w: Math.random()*6.28, s: 0.08+Math.random()*0.2});
+for (let i = 0; i < 4; i++) glows.push({x: Math.random()*W, y: Math.random()*H, r: 200+Math.random()*240, hue: 180+Math.random()*120, w: Math.random()*6.28});
+
+const RX = 190*SC, RY = 104*SC;
+const rows = [];
+for (let i = 0; i < 6; i++) rows.push({v: -0.72+i*0.29, off: Math.random()*6.28, sp: 0.7+Math.random()*0.6});
+const innards = [];
+for (let i = 0; i < 3; i++) innards.push({y0: -0.3+i*0.3, amp: 0.1+Math.random()*0.12, w: Math.random()*6.28});
+
+function spawnBubbles(x, y, n) {
+  for (let i = 0; i < n; i++) bubbles.push({
+    x: x+(Math.random()-0.5)*30, y: y+(Math.random()-0.5)*30,
+    r: 2.5+Math.random()*6,
+    vx: (Math.random()-0.5)*1.5, vy: -1-Math.random()*1.5,
+    life: 1, w: Math.random()*6.28});
+  if (bubbles.length > 160) bubbles = bubbles.slice(-160);
+}
+function pickTarget() {
+  targetP.x = 210+Math.random()*(W-420);
+  targetP.y = 160+Math.random()*(H-320);
+}
+pickTarget();
+
+function step() {
+  t += 0.016;
+  glowWave += 0.016*(0.8+pulse)*(1+Math.abs(omega)*2);
+  const spinning = Math.abs(omega) > 0.02;
+  const dx = targetP.x-pos.x, dy = targetP.y-pos.y;
+  if (Math.hypot(dx, dy) < 60) pickTarget();
+  if (!spinning && ptrs.size === 0) {
+    vel.x += dx*0.00006*pulse;
+    vel.y += dy*0.00006*pulse;
+    const sway = Math.sin(t*(0.9+pulse*0.5));
+    vel.x += Math.cos(rot)*sway*0.012;
+    vel.y += Math.sin(rot)*sway*0.006;
+    rot += Math.sin(t*0.23)*0.0012;
+  }
+  vel.x *= 0.985; vel.y *= 0.985;
+  pos.x += vel.x; pos.y += vel.y;
+  pos.x = Math.max(RX+40, Math.min(W-RX-40, pos.x));
+  pos.y = Math.max(RY+50, Math.min(H-RY-50, pos.y));
+  rot += omega;
+  omega *= 0.988;
+  if (Math.abs(omega) > 0.12 && Math.random() < 0.3) {
+    const a = rot+(Math.random() < 0.5 ? 0 : Math.PI);
+    spawnBubbles(pos.x+Math.cos(a)*RX*0.9, pos.y+Math.sin(a)*RX*0.55, 1);
+  }
+  if (Math.random() < 0.012) spawnBubbles(pos.x, pos.y-RY*0.5, 1);
+  bubbles = bubbles.filter(b => b.life > 0 && b.y > -20);
+  for (const b of bubbles) { b.x += b.vx+Math.sin(t*3+b.w)*0.5; b.y += b.vy; b.life -= 0.007; }
+  for (const s of sparks) { s.y -= s.s; if (s.y < -5) { s.y = H+5; s.x = Math.random()*W; } }
+}
+
+function drawBubble(x, y, r, alpha) {
+  if (!isFinite(x)||!isFinite(y)||!isFinite(r)||r<=0) return;
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#B5D4F4'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+  ctx.fillStyle = 'rgba(230,241,251,0.12)';
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.beginPath(); ctx.arc(x-r*0.35, y-r*0.35, r*0.25, 0, 6.2832); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+function bodyPath(sc, squish) {
+  ctx.beginPath();
+  const rx = RX*sc, ry = RY*sc*squish;
+  ctx.moveTo(-rx, 0);
+  ctx.bezierCurveTo(-rx*1.02, -ry*0.85, -rx*0.45, -ry*1.08, 0, -ry*0.95);
+  ctx.bezierCurveTo(rx*0.5, -ry*1.1, rx*1.04, -ry*0.7, rx, -ry*0.05);
+  ctx.bezierCurveTo(rx*1.03, ry*0.6, rx*0.5, ry*1.05, 0, ry*0.98);
+  ctx.bezierCurveTo(-rx*0.48, ry*1.1, -rx*1.03, ry*0.8, -rx, 0);
+  ctx.closePath();
+}
+function drawJelly(alpha, sc, squish) {
+  ctx.globalAlpha = alpha;
+  bodyPath(sc, squish);
+  let mem = ctx.createRadialGradient(-RX*0.15*sc, -RY*0.3*sc, RX*0.1*sc, 0, 0, RX*1.05*sc);
+  mem.addColorStop(0, 'rgba(235,242,252,0.10)');
+  mem.addColorStop(0.65, 'rgba(214,226,246,0.13)');
+  mem.addColorStop(0.9, 'rgba(230,240,255,0.22)');
+  mem.addColorStop(1, 'rgba(245,250,255,0.34)');
+  ctx.fillStyle = mem;
+  ctx.fill();
+  ctx.save();
+  bodyPath(sc, squish);
+  ctx.clip();
+  const gw = (glowWave%2)-0.5;
+  const gx = gw*RX*2*sc;
+  let bio = ctx.createRadialGradient(gx, 0, 0, gx, 0, RX*0.85*sc);
+  bio.addColorStop(0, 'rgba(180,220,255,'+0.16*pulse*alpha+')');
+  bio.addColorStop(0.5, 'rgba(150,200,250,'+0.07*pulse*alpha+')');
+  bio.addColorStop(1, 'rgba(150,200,250,0)');
+  ctx.fillStyle = bio;
+  ctx.fillRect(-RX*1.2, -RY*1.2, RX*2.4, RY*2.4);
+  ctx.strokeStyle = 'rgba(235,244,255,0.20)';
+  ctx.lineWidth = 5*SC;
+  for (const inn of innards) {
+    ctx.beginPath();
+    for (let k = 0; k <= 30; k++) {
+      const u = k/30*2-1;
+      const x = u*RX*0.82*sc;
+      const y = (inn.y0+Math.sin(u*3.2+inn.w+Math.sin(t*0.7+inn.w)*0.5)*inn.amp)*RY*sc*squish;
+      if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(235,244,255,0.13)';
+  ctx.lineWidth = 9*SC;
+  ctx.beginPath();
+  ctx.ellipse(-RX*0.35*sc, 0, RX*0.42*sc, RY*0.55*sc*squish, 0.15, 0, 6.2832);
+  ctx.stroke();
+  for (const row of rows) {
+    const vv = row.v;
+    const edge = Math.sqrt(Math.max(0.08, 1-vv*vv));
+    for (let k = 0; k <= 56; k++) {
+      const u = (k/56)*2-1;
+      const x = u*RX*0.97*edge*sc;
+      const bow = Math.sqrt(Math.max(0, 1-u*u));
+      const y = vv*RY*sc*squish*(0.35+0.65*bow)*(1/Math.max(0.55, bow+0.001)*0.55+0.45);
+      const phase = u*9-glowWave*6.2832*row.sp+row.off;
+      const wavep = Math.pow(Math.max(0, Math.sin(phase)), 3);
+      const hue = ((u*240-glowWave*320+row.off*57)%360+360)%360;
+      const a2 = (0.10+wavep*0.85)*alpha;
+      const ln = (2.5+wavep*5.5)*sc;
+      ctx.strokeStyle = 'hsla('+hue+',95%,'+(62+wavep*25)+'%,'+a2+')';
+      ctx.lineWidth = 2.6*sc;
+      ctx.beginPath();
+      ctx.moveTo(x, y-ln);
+      ctx.lineTo(x, y+ln);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+  bodyPath(sc, squish);
+  ctx.strokeStyle = 'rgba(240,247,255,'+0.5*alpha+')';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,'+0.35*alpha+')';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, RX*0.99*sc, RY*0.99*sc*squish, 0, -2.7, -1.1);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  if (APP.cur !== 's') { requestAnimationFrame(draw); return; }
+  try {
+    ctx.fillStyle = '#02182e'; ctx.fillRect(0, 0, W, H);
+    for (const g of glows) {
+      const hue = (g.hue+t*8)%360;
+      const gx = g.x+Math.sin(t*0.25+g.w)*50, gy = g.y+Math.cos(t*0.2+g.w)*35;
+      const gr = ctx.createRadialGradient(gx, gy, 0, gx, gy, g.r);
+      gr.addColorStop(0, 'hsla('+hue+',65%,60%,0.07)');
+      gr.addColorStop(1, 'hsla('+hue+',65%,60%,0)');
+      ctx.fillStyle = gr;
+      ctx.beginPath(); ctx.arc(gx, gy, g.r, 0, 6.2832); ctx.fill();
+    }
+    for (const s of sparks) {
+      const tw = 0.3+0.7*Math.abs(Math.sin(t*1.6+s.w));
+      ctx.fillStyle = 'rgba(210,230,250,'+0.4*tw+')';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r*tw, 0, 6.2832); ctx.fill();
+    }
+
+    const pulseS = 1+Math.sin(t*(1.1+pulse*1.1))*0.045*pulse;
+    const squish = 1+Math.sin(t*(1.1+pulse*1.1)+1.2)*0.05*pulse;
+    const spd = Math.abs(omega);
+
+    ctx.save();
+    ctx.translate(pos.x, pos.y+Math.sin(t*1.3)*6);
+
+    if (spd > 0.05 && !REDUCED) {
+      const streaks = Math.min(5, Math.floor(spd*30));
+      for (let i = streaks; i >= 1; i--) {
+        ctx.save();
+        ctx.rotate(rot-Math.sign(omega)*i*Math.min(0.22, spd*1.6));
+        drawJelly(0.10, pulseS, squish);
+        ctx.restore();
+      }
+      ctx.save();
+      ctx.rotate(rot);
+      const ringR = RX*1.06;
+      for (let k = 0; k < 60; k++) {
+        const a = k/60*6.2832;
+        const hue = ((a*57-glowWave*320)%360+360)%360;
+        ctx.strokeStyle = 'hsla('+hue+',90%,70%,'+Math.min(0.5, spd*2.2)*Math.abs(Math.sin(a*3+glowWave*6))+')';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, ringR, ringR*0.62, 0, a, a+0.07);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    ctx.rotate(rot);
+    drawJelly(1, pulseS, squish);
+    ctx.restore();
+
+    for (const b of bubbles) drawBubble(b.x, b.y, b.r*b.life, Math.min(1, b.life*1.8));
+    step();
+  } catch (err) { omega = 0; }
+  requestAnimationFrame(draw);
+}
+
+function toCanvas(e) {
+  const r = cv.getBoundingClientRect();
+  return {x: (e.clientX-r.left)/r.width*W, y: (e.clientY-r.top)/r.height*H};
+}
+cv.addEventListener('pointerdown', e => {
+  const p = toCanvas(e);
+  ptrs.set(e.pointerId, {x: p.x, y: p.y, a: Math.atan2(p.y-pos.y, p.x-pos.x)});
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+});
+cv.addEventListener('pointermove', e => {
+  const prev = ptrs.get(e.pointerId);
+  if (!prev) return;
+  const p = toCanvas(e);
+  const a = Math.atan2(p.y-pos.y, p.x-pos.x);
+  const d = Math.hypot(p.x-pos.x, p.y-pos.y);
+  let da = a-prev.a;
+  while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832;
+  if (d < 340 && d > 20) {
+    omega += da*0.16;
+    omega = Math.max(-0.45, Math.min(0.45, omega));
+  }
+  if (ptrs.size === 1 && d < 240) {
+    vel.x += (p.x-prev.x)*0.05;
+    vel.y += (p.y-prev.y)*0.05;
+  }
+  ptrs.set(e.pointerId, {x: p.x, y: p.y, a});
+});
+function endPtr(e) { ptrs.delete(e.pointerId); }
+cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointercancel', endPtr);
+document.getElementById('pulse-s').addEventListener('input', e => pulse = parseFloat(e.target.value));
+document.getElementById('spin-s').addEventListener('click', () => { omega = 0.4*(Math.random() < 0.5 ? -1 : 1); spawnBubbles(pos.x, pos.y, 10); });
+draw();
+})();
+</script>
