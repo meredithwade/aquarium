@@ -457,10 +457,14 @@ function doPuff() { puffT = 1; puffUntil = t+4; spawnBubbles(pos.x, pos.y, 14, t
 function pickTarget() {
   targetP.x = 200+Math.random()*(W-400);
   targetP.y = 170+Math.random()*(H-340);
+  legSpd = 0.6+Math.random()*0.8;
+  wanderW = Math.random()*6.28;
 }
 pickTarget();
 let nextMove = 3+Math.random()*3;
 let cruise = 2, slowT = 0;
+let heading = 0, legSpd = 1, hesit = 0, bank = 0, wanderW = Math.random()*6.28;
+let grow = 0, popped = -1, appear = 1;
 
 function step() {
   t += 0.016;
@@ -469,30 +473,60 @@ function step() {
   const popT = Math.max(squeeze, pinch.active ? 1 : 0);
   popV += (popT-pop)*0.12; popV *= 0.82; pop += popV;
   if (holdStart > 0 && t-holdStart > 0.35) squeeze = Math.min(1, squeeze+0.06);
+  if (popped >= 0) {
+    popped -= 0.016;
+    pop = 0; popV = 0; squeeze = 0; holdStart = -1; grow = 0;
+    if (popped < 0) {
+      pos.x = 200+Math.random()*(W-400);
+      pos.y = 170+Math.random()*(H-340);
+      vel.x = 0; vel.y = 0; view = 1; slowT = 2; appear = 0;
+      spawnBubbles(pos.x, pos.y, 12, false);
+    }
+  } else {
+    if (pop > 0.85 && popT >= 1) grow = Math.min(1, grow+0.016/2.2);
+    else grow = Math.max(0, grow-0.03);
+    if (grow >= 1) {
+      spawnBubbles(pos.x, pos.y-20, 26, true);
+      spawnBubbles(pos.x, pos.y, 18, false);
+      popped = 1.15;
+    }
+  }
+  appear += (1-appear)*0.08;
 
   const drift = puff > 0.5 ? 0.12 : 1;
   const dx = targetP.x-pos.x, dy = targetP.y-pos.y;
   const distT = Math.hypot(dx, dy);
   if (distT < 60) {
+    bank *= 0.95;
     if (cruise > 0) { cruise--; pickTarget(); }
     else {
       restT += 0.016;
       if (restT > nextMove) { restT = 0; nextMove = 2.5+Math.random()*4; cruise = 1+Math.floor(Math.random()*3); pickTarget(); }
     }
   } else {
-    vel.x += dx*0.00030*flutter*drift;
-    vel.y += dy*0.00030*flutter*drift;
+    const want = Math.atan2(dy, dx);
+    let da = want-heading;
+    while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832;
+    const wander = Math.sin(t*0.8+wanderW)*0.5+Math.sin(t*0.27+wanderW*2)*0.35;
+    heading += da*0.045+wander*0.02;
+    bank += (Math.max(-0.5, Math.min(0.5, da))*0.8-bank)*0.08;
+    if (hesit > 0) hesit -= 0.016;
+    else if (Math.random() < 0.003) hesit = 0.4+Math.random()*0.8;
+    const beat = Math.pow(Math.max(0, Math.sin(t*(10+flutter*8))), 2);
+    const thr = (hesit > 0 ? 0.15 : 1)*(0.35+0.9*beat)*legSpd;
+    vel.x += Math.cos(heading)*0.09*flutter*drift*thr;
+    vel.y += Math.sin(heading)*0.09*flutter*drift*thr;
   }
   vel.x *= 0.972; vel.y *= 0.972;
   pos.x += vel.x; pos.y += vel.y;
   pos.x = Math.max(170*SC+30, Math.min(W-170*SC-30, pos.x));
   pos.y = Math.max(165*SC+30, Math.min(H-165*SC-30, pos.y));
   const speed = Math.hypot(vel.x, vel.y);
-  if (Math.abs(vel.x) > 0.2) facing = vel.x > 0 ? 1 : -1;
+  if (speed > 0.4 && Math.abs(Math.cos(heading)) > 0.25) facing = Math.cos(heading) > 0 ? 1 : -1;
   if (speed < 0.55) slowT += 0.016; else slowT = 0;
   const targetView = (slowT > 1.6 || pop > 0.3) ? 1 : 0;
   view += (targetView-view)*0.035;
-  tilt += ((vel.y*0.05*facing*(1-view))-tilt)*0.05;
+  tilt += (((vel.y*0.05+bank*0.55)*facing*(1-view))-tilt)*0.05;
 
   if (puff > 0.5 && Math.random() < 0.05) spawnBubbles(pos.x, pos.y-60, 1, false);
   if (pop > 0.5 && Math.random() < 0.15) spawnBubbles(pos.x, pos.y-40, 1, false);
@@ -624,10 +658,11 @@ function draw() {
     const bob = Math.sin(t*1.6)*7;
     const flap = Math.sin(t*(10+flutter*8));
 
+    if (popped < 0) {
     ctx.save();
     ctx.translate(pos.x, pos.y+bob);
     ctx.rotate(tilt);
-    ctx.scale(facing*(1-squeeze*0.08), 1+squeeze*0.06);
+    ctx.scale(facing*(1-squeeze*0.08)*(0.25+0.75*appear), (1+squeeze*0.06+grow*0.1)*(0.25+0.75*appear));
 
     const outline = [];
     for (let k = 0; k < 80; k++) {
@@ -750,10 +785,12 @@ function draw() {
     const fEx = lerp(-maxRX*0.55, -maxRX*0.5, V);
     const fEy = -maxRY*0.34;
     const nn = Math.hypot(nEx, nEy) || 1, fn = Math.hypot(fEx, fEy) || 1;
-    const off = pop*er*1.8;
+    const off = pop*er*(1.8+grow*1.6);
     const farA = Math.max(0, Math.min(1, (V-0.35)/0.5));
-    if (farA > 0.01) drawEye(fEx+fEx/fn*off, fEy+fEy/fn*off, er*lerp(0.9, 1, V), pop, farA, fEx, fEy);
-    drawEye(nEx+nEx/nn*off, nEy+nEy/nn*off, er, pop, 1, nEx, nEy);
+    const gj = () => (Math.random()-0.5)*grow*5;
+    const popE = pop*(1+grow*1.3);
+    if (farA > 0.01) drawEye(fEx+fEx/fn*off+gj(), fEy+fEy/fn*off+gj(), er*lerp(0.9, 1, V), popE, farA, fEx, fEy);
+    drawEye(nEx+nEx/nn*off+gj(), nEy+nEy/nn*off+gj(), er, popE, 1, nEx, nEy);
 
     const mx = lerp(bodyRad(0.32, P, V)*Math.cos(0.32)*0.97, 0, V);
     const my = lerp(bodyRad(0.32, P, V)*Math.sin(0.32)*0.97, maxRY*0.5, V);
@@ -786,6 +823,7 @@ function draw() {
     ctx.restore();
 
     ctx.restore();
+    }
 
     for (const b of bubbles) drawBubble(b.x, b.y, b.r*b.life, Math.min(1, b.life*2));
     step();
