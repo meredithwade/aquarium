@@ -454,6 +454,9 @@ function spawnBubbles(x, y, n, big) {
   if (bubbles.length > 160) bubbles = bubbles.slice(-160);
 }
 function doPuff() { puffT = 1; puffUntil = t+4; spawnBubbles(pos.x, pos.y, 14, true); }
+let cruise = 2, slowT = 0;
+let heading = 0, legSpd = 1, hesit = 0, bank = 0, wanderW = Math.random()*6.28;
+let grow = 0, popped = -1, appear = 1;
 function pickTarget() {
   targetP.x = 200+Math.random()*(W-400);
   targetP.y = 170+Math.random()*(H-340);
@@ -462,9 +465,6 @@ function pickTarget() {
 }
 pickTarget();
 let nextMove = 3+Math.random()*3;
-let cruise = 2, slowT = 0;
-let heading = 0, legSpd = 1, hesit = 0, bank = 0, wanderW = Math.random()*6.28;
-let grow = 0, popped = -1, appear = 1;
 
 function step() {
   t += 0.016;
