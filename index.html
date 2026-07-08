@@ -460,7 +460,7 @@ let grow = 0, popped = -1, appear = 1;
 function pickTarget() {
   targetP.x = 200+Math.random()*(W-400);
   targetP.y = 170+Math.random()*(H-340);
-  legSpd = 0.6+Math.random()*0.8;
+  legSpd = 0.85+Math.random()*0.65;
   wanderW = Math.random()*6.28;
 }
 pickTarget();
@@ -483,7 +483,7 @@ function step() {
       spawnBubbles(pos.x, pos.y, 12, false);
     }
   } else {
-    if (pop > 0.85 && popT >= 1) grow = Math.min(1, grow+0.016/2.2);
+    if (pop > 0.85 && popT >= 1) grow = Math.min(1, grow+0.016/1.8);
     else grow = Math.max(0, grow-0.03);
     if (grow >= 1) {
       spawnBubbles(pos.x, pos.y-20, 26, true);
@@ -511,11 +511,11 @@ function step() {
     heading += da*0.045+wander*0.02;
     bank += (Math.max(-0.5, Math.min(0.5, da))*0.8-bank)*0.08;
     if (hesit > 0) hesit -= 0.016;
-    else if (Math.random() < 0.003) hesit = 0.4+Math.random()*0.8;
+    else if (Math.random() < 0.0018) hesit = 0.35+Math.random()*0.5;
     const beat = Math.pow(Math.max(0, Math.sin(t*(10+flutter*8))), 2);
     const thr = (hesit > 0 ? 0.15 : 1)*(0.35+0.9*beat)*legSpd;
-    vel.x += Math.cos(heading)*0.09*flutter*drift*thr;
-    vel.y += Math.sin(heading)*0.09*flutter*drift*thr;
+    vel.x += Math.cos(heading)*0.17*flutter*drift*thr;
+    vel.y += Math.sin(heading)*0.17*flutter*drift*thr;
   }
   vel.x *= 0.972; vel.y *= 0.972;
   pos.x += vel.x; pos.y += vel.y;
