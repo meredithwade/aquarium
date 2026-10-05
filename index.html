@@ -32,13 +32,15 @@ footer{color:var(--mist);font-size:12px;margin-top:26px;line-height:1.6;}
 <div class="wrap">
 <header>
 <h1>Immortal <span class="spark">Aquarium</span></h1>
-<p class="sub">Touch prototype — three tankmates, one per tab. Best held in one hand, poked with the other.</p>
+<p class="sub">Touch prototype — five tankmates, one per tab. Best held in one hand, poked with the other.</p>
 </header>
 
 <div class="tabs" role="tablist">
 <button class="tab on" id="tab-b" role="tab" aria-selected="true">Bubbles</button>
 <button class="tab" id="tab-p" role="tab" aria-selected="false">Poppy</button>
 <button class="tab" id="tab-s" role="tab" aria-selected="false">Slink</button>
+<button class="tab" id="tab-a" role="tab" aria-selected="false">Angler</button>
+<button class="tab" id="tab-o" role="tab" aria-selected="false">Octo</button>
 </div>
 
 <section class="tank-sec on" id="sec-b">
@@ -71,7 +73,27 @@ footer{color:var(--mist);font-size:12px;margin-top:26px;line-height:1.6;}
 </div>
 </section>
 
-<footer>Gestures from the storyboard: Bubbles sheds bubbles when petted or pulled; Poppy puffs like a balloon and does the Panic Pete eye-pop; Slink is a centripetal spinner. Characters pause when their tab is hidden.</footer>
+<section class="tank-sec" id="sec-a">
+<p class="hint"><b>Tap</b> his light &middot; <b>pull</b> the light and let go &middot; <b>cover</b> the light with a finger</p>
+<div class="tankbox" style="background:#0A2A54;"><canvas id="tank-a"></canvas></div>
+<div class="ctrls">
+<label for="drift-a">Drift</label>
+<input type="range" id="drift-a" min="0.3" max="2" step="0.1" value="1">
+<button class="btn" id="light-a">Change light color</button>
+</div>
+</section>
+
+<section class="tank-sec" id="sec-o">
+<p class="hint"><b>Hold</b> a finger near an arm &middot; <b>tap</b> her suckers &middot; <b>press-and-hold</b> her head &middot; <b>swipe</b> quickly nearby</p>
+<div class="tankbox" style="background:#1A0F40;"><canvas id="tank-o"></canvas></div>
+<div class="ctrls">
+<label for="wave-o">Arm wave</label>
+<input type="range" id="wave-o" min="0.3" max="2" step="0.1" value="1">
+<button class="btn" id="ink-o">Ink cloud</button>
+</div>
+</section>
+
+<footer>Gestures from the storyboard: Bubbles sheds bubbles when petted or pulled; Poppy puffs like a balloon and does the Panic Pete eye-pop; Slink is a centripetal spinner; Angler's light answers taps, tugs and peekaboo; Octo reaches, pops, changes color and jets off in a cloud of ink. Characters pause when their tab is hidden.</footer>
 </div>
 
 <script>
@@ -79,10 +101,10 @@ const APP = {cur:'b'};
 const PORTRAIT = Math.min(window.innerWidth, window.innerHeight) < 700 && window.innerHeight > window.innerWidth;
 const VW = PORTRAIT ? 760 : 1360, VH = PORTRAIT ? 1050 : 840;
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
-for (const k of ['b','p','s']) {
+for (const k of ['b','p','s','a','o']) {
   document.getElementById('tab-'+k).addEventListener('click', () => {
     APP.cur = k;
-    for (const j of ['b','p','s']) {
+    for (const j of ['b','p','s','a','o']) {
       document.getElementById('tab-'+j).classList.toggle('on', j===k);
       document.getElementById('tab-'+j).setAttribute('aria-selected', j===k);
       document.getElementById('sec-'+j).classList.toggle('on', j===k);
@@ -1391,4 +1413,1283 @@ document.getElementById('spin-s').addEventListener('click', () => {
 });
 draw();
 })();
+</script>
+
+<script>
+// ---- shared creature cores (generated from src/angler-core.js + src/octo-core.js) ----
+// Anglerfish core v12 — traced from the blue reference panel (landmarks measured on a grid).
+// Body box aspect 0.68; near eye (-0.22bw,-0.54bh) r0.18bw; far eye (0.72bw,-0.66bh) r0.16bw;
+// mouth x 0.06..0.86bw, y -0.40..0.12bh; chin overhang to 1.02bw; dorsal along the back;
+// stalk base (0.16bw,-0.92bh) peaking (0.45bw,-2.2bh), pearl bulb rest (0.86bw,-1.8bh).
+// Pearlescent blue back -> cream face, frilly translucent ray fins, pearl bulb.
+
+function anglerDraw(ctx, S, SC) {
+  const t = S.t;
+  const F = S.facing || 1;
+  const swim = S.swim || 0;
+  ctx.save();
+  ctx.translate(S.pos.x, S.pos.y + Math.sin(t*1.3)*(3 + swim*2));
+  ctx.rotate(S.tilt || 0);
+  ctx.scale(F, 1);
+  ctx.rotate(Math.sin(t*(2.2 + swim*5)) * 0.02 * (0.3 + swim));
+
+  const bw = 116*SC, bh = 90*SC;
+  const wag = Math.sin(t*(2.2 + swim*5.5)) * (0.10 + swim*0.30);
+  const flap = Math.sin(t*(1.8 + swim*4)) * (0.10 + swim*0.16);
+  const mo = S.mouth;
+  const open2 = mo === 1 ? 1 : (mo === -1 ? 0 : 0.7);
+
+  // ---------- frilly translucent ray fan ----------
+  function rayFan(cx, cy, rot, len, spread, nRays, alpha, lean) {
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(rot);
+    const g = ctx.createRadialGradient(0, 0, len*0.05, 0, 0, len);
+    g.addColorStop(0, 'rgba(200,222,255,'+(0.92*alpha)+')');
+    g.addColorStop(0.55, 'rgba(130,172,236,'+(0.6*alpha)+')');
+    g.addColorStop(1, 'rgba(170,205,250,'+(0.14*alpha)+')');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    for (let i = 0; i <= nRays; i++) {
+      const u = i/nRays;
+      const a = -spread/2 + u*spread + (lean||0)*(u-0.5);
+      const r = len * (0.8 + 0.2*Math.sin(u*Math.PI));
+      const px = Math.cos(a)*r, py = Math.sin(a)*r;
+      if (i === 0) ctx.lineTo(px, py);
+      else {
+        const am = a - spread/nRays/2;
+        const rm = r*0.9;
+        ctx.quadraticCurveTo(Math.cos(am)*rm, Math.sin(am)*rm, px, py);
+      }
+    }
+    ctx.closePath(); ctx.fill();
+    // white ray lines (the frilly read)
+    ctx.strokeStyle = 'rgba(245,250,255,'+(0.7*alpha)+')';
+    ctx.lineWidth = 1.4*SC;
+    for (let i = 0; i <= nRays; i++) {
+      const u = i/nRays;
+      const a = -spread/2 + u*spread + (lean||0)*(u-0.5);
+      const r = len * (0.78 + 0.2*Math.sin(u*Math.PI));
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a)*len*0.06, Math.sin(a)*len*0.06);
+      ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ---------- fins behind the body ----------
+  // tail fan at the back, spread vertically
+  rayFan(-bw*1.0, -bh*0.05, Math.PI + wag, 86*SC, 1.8, 9, 0.95);
+  // big dorsal crest along the back: rays radiating up and back from the spine
+  rayFan(-bw*0.3, -bh*0.76, -Math.PI*0.6 + flap*0.35, 96*SC, 2.15, 15, 0.95, -0.45);
+  // small anal fin under the back
+  rayFan(bw*0.5, bh*0.9, Math.PI*0.42 - flap*0.5, 30*SC, 0.9, 4, 0.9);
+
+  // ---------- body: tilted egg, head right, chin overhang ----------
+  const body = () => {
+    ctx.beginPath();
+    ctx.moveTo(-bw*0.98, -bh*0.08);
+    ctx.bezierCurveTo(-bw*0.9, -bh*0.9, -bw*0.4, -bh*1.12, bw*0.05, -bh*1.02);   // back -> crown
+    ctx.bezierCurveTo(bw*0.5, -bh*0.94, bw*0.9, -bh*0.6, bw*0.98, -bh*0.15);     // forehead -> snout
+    ctx.bezierCurveTo(bw*1.02, bh*0.1, bw*1.04, bh*0.32, bw*0.96, bh*0.5);       // chin overhang
+    ctx.bezierCurveTo(bw*0.75, bh*0.9, bw*0.3, bh*1.05, -bw*0.2, bh*1.0);        // belly
+    ctx.bezierCurveTo(-bw*0.65, bh*0.95, -bw*0.95, bh*0.55, -bw*0.98, -bh*0.08); // back-bottom
+    ctx.closePath();
+  };
+  // blue back -> cream face/belly
+  const bg = ctx.createRadialGradient(bw*0.78, bh*0.42, 6*SC, bw*0.35, bh*0.1, bw*1.4);
+  bg.addColorStop(0, '#F8F3ED');
+  bg.addColorStop(0.16, '#F0EAE8');
+  bg.addColorStop(0.3, '#B9CEF2');
+  bg.addColorStop(0.62, '#7599E0');
+  bg.addColorStop(1, '#4E72BF');
+  ctx.fillStyle = bg;
+  body(); ctx.fill();
+  ctx.strokeStyle = 'rgba(60,80,140,0.28)'; ctx.lineWidth = 1.8*SC;
+  body(); ctx.stroke();
+
+  ctx.save();
+  body(); ctx.clip();
+  // pearl-bead texture on the blue back (dense at back, fading to the face)
+  for (let k = 0; k < 140; k++) {
+    const rx = Math.sin(k*12.9898)*0.5, ry = Math.sin(k*78.233)*0.5;
+    const px = -bw*0.95 + (rx+0.5)*bw*1.6, py = -bh*1.0 + (ry+0.5)*bh*1.9;
+    const faceFade = Math.max(0, Math.min(1, (bw*0.72 - px - (py>0? py*0.5:0))/(bw*0.5)));
+    if (faceFade < 0.05) continue;
+    const r = (2.2 + ((k*7)%4)*0.8)*SC;
+    ctx.fillStyle = 'rgba(235,245,255,'+(0.45*faceFade)+')';
+    ctx.beginPath(); ctx.arc(px, py, r, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'rgba(120,150,210,'+(0.25*faceFade)+')';
+    ctx.beginPath(); ctx.arc(px + r*0.4, py + r*0.5, r*0.6, 0, 6.2832); ctx.fill();
+  }
+  // glossy top highlight
+  const hl = ctx.createRadialGradient(-bw*0.25, -bh*0.7, 4*SC, -bw*0.25, -bh*0.7, bw*0.7);
+  hl.addColorStop(0, 'rgba(255,255,255,0.45)');
+  hl.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hl;
+  ctx.beginPath(); ctx.arc(-bw*0.25, -bh*0.7, bw*0.7, 0, 6.2832); ctx.fill();
+  // bulb light wash on the face
+  if (S.bulbBright > 0.12) {
+    const blx = S.bulb.x * F, bly = S.bulb.y;
+    const lg = ctx.createRadialGradient(blx, bly, 20*SC, blx, bly, 330*SC);
+    lg.addColorStop(0, 'hsla('+S.bulbHue+',85%,78%,'+(0.55*S.bulbBright)+')');
+    lg.addColorStop(0.55, 'hsla('+S.bulbHue+',85%,78%,'+(0.14*S.bulbBright)+')');
+    lg.addColorStop(1, 'hsla('+S.bulbHue+',85%,78%,0)');
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = lg;
+    ctx.fillRect(-bw*1.3, -bh*2.5, bw*2.6, bh*4);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  ctx.restore();
+
+  // big near-side pectoral fan hanging below-left
+  rayFan(-bw*0.52, bh*0.5, Math.PI*0.74 - flap, 96*SC, 1.4, 10, 0.95);
+  // small pelvic fin at the bottom
+  rayFan(-bw*0.1, bh*0.98, Math.PI*0.55 + flap*0.6, 32*SC, 0.9, 4, 0.9);
+
+  // ---------- mouth: joyful open grin with tiny pearl teeth ----------
+  const mx0 = bw*0.16, mx1 = bw*0.93;             // wide grin from under the near cheek to the snout
+  const mTop = -bh*(0.16 + 0.2*open2);            // arch apex rises when open
+  const mBot = bh*(0.02 + 0.12*open2);            // floor drops when open
+  if (mo === -1) {
+    // puzzled: small o
+    ctx.fillStyle = '#5A1E30';
+    ctx.beginPath(); ctx.ellipse(bw*0.5, -bh*0.1, 7*SC, 8.5*SC, 0, 0, 6.2832); ctx.fill();
+  } else {
+    // dark cavity: arch top, gentle floor
+    ctx.fillStyle = '#5A1E30';
+    ctx.beginPath();
+    ctx.moveTo(mx0, -bh*0.02);
+    ctx.quadraticCurveTo((mx0+mx1)/2, 2*mTop + bh*0.09, mx1, -bh*0.1);
+    ctx.quadraticCurveTo((mx0+mx1)/2, 2*mBot + bh*0.06, mx0, -bh*0.02);
+    ctx.closePath(); ctx.fill();
+    // tongue
+    ctx.fillStyle = '#F29AB0';
+    ctx.beginPath();
+    ctx.ellipse((mx0+mx1)/2 + bw*0.04, mBot*0.75 + bh*0.02, bw*0.2, bh*(0.07 + 0.06*open2), 0, Math.PI, 6.2832);
+    ctx.fill();
+    // upper lip line
+    ctx.strokeStyle = 'rgba(120,70,90,0.5)'; ctx.lineWidth = 2*SC; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(mx0, -bh*0.02);
+    ctx.quadraticCurveTo((mx0+mx1)/2, 2*mTop + bh*0.09, mx1, -bh*0.1);
+    ctx.stroke();
+    // tiny pearl teeth on the upper lip
+    for (let i = 0; i < 4; i++) {
+      const u = 0.2 + i*0.2;
+      const tx2 = mx0 + (mx1-mx0)*u;
+      const ty2 = (1-u)*(1-u)*(-bh*0.02) + 2*(1-u)*u*(2*mTop + bh*0.09) + u*u*(-bh*0.1);
+      ctx.fillStyle = '#FFFDF8';
+      ctx.beginPath(); ctx.ellipse(tx2, ty2 + 4*SC, 3.4*SC, 4.2*SC, 0, 0, 6.2832); ctx.fill();
+    }
+  }
+
+  // ---------- UNDERBITE: soft lower lip bump pushing just past the snout ----------
+  const chinG = ctx.createLinearGradient(0, bh*0.02, 0, bh*0.42);
+  chinG.addColorStop(0, '#FBF6F1');
+  chinG.addColorStop(1, '#E9E0DA');
+  ctx.fillStyle = chinG;
+  ctx.beginPath();
+  ctx.moveTo(mx0, bh*0.0);
+  ctx.quadraticCurveTo(bw*0.55, bh*(0.16 + 0.1*open2), bw*0.94, bh*(0.02 + 0.06*open2));   // lower lip rim
+  ctx.quadraticCurveTo(bw*1.09, bh*0.12, bw*1.03, bh*0.3);                                 // lip tip OUT past the snout
+  ctx.quadraticCurveTo(bw*0.85, bh*0.44, bw*0.5, bh*0.38);                                 // under lip
+  ctx.quadraticCurveTo(bw*0.25, bh*0.24, mx0, bh*0.0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(120,90,110,0.18)'; ctx.lineWidth = 1.2*SC; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 2.4*SC; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(mx0 + bw*0.06, bh*0.03);
+  ctx.quadraticCurveTo(bw*0.55, bh*(0.17 + 0.1*open2), bw*0.92, bh*(0.03 + 0.06*open2));
+  ctx.stroke();
+  if (mo !== -1) {
+    for (const u of [0.4, 0.68]) {
+      const x0 = mx0, x1 = bw*0.94;
+      const tx2 = x0 + (x1-x0)*u;
+      const ty2 = (1-u)*(1-u)*(bh*0.0) + 2*(1-u)*u*(bh*(0.16+0.1*open2)) + u*u*(bh*(0.02+0.06*open2));
+      ctx.fillStyle = '#FFFDF8';
+      ctx.beginPath(); ctx.ellipse(tx2, ty2 - 3*SC, 2.8*SC, 3.6*SC, 0, 0, 6.2832); ctx.fill();
+    }
+  }
+
+  // ---------- blush ----------
+  ctx.fillStyle = 'rgba(240,135,165,0.55)';
+  ctx.beginPath(); ctx.ellipse(-bw*0.18, -bh*0.02, 19*SC, 11*SC, 0.05, 0, 6.2832); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(bw*0.9, -bh*0.16, 11*SC, 7*SC, -0.1, 0, 6.2832); ctx.fill();
+
+  // ---------- eyes: big, wide, amber ring + violet center, white sclera ----------
+  const lid = mo === -1 ? 0.45 : 0.06;
+  function drawEye(ex, ey, eyeR) {
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath(); ctx.ellipse(ex, ey, eyeR, eyeR*1.08, 0, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = 'rgba(90,100,150,0.4)'; ctx.lineWidth = 1.4*SC;
+    ctx.beginPath(); ctx.ellipse(ex, ey, eyeR, eyeR*1.08, 0, 0, 6.2832); ctx.stroke();
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(ex, ey, eyeR, eyeR*1.08, 0, 0, 6.2832); ctx.clip();
+    const ix = ex + (S.eyeLook.x||0)*F*eyeR*0.28;
+    const iy = ey + (S.eyeLook.y||0)*eyeR*0.28 + eyeR*0.05;
+    // amber outer ring
+    const ring = ctx.createRadialGradient(ix-eyeR*0.15, iy-eyeR*0.18, eyeR*0.25, ix, iy, eyeR*0.82);
+    ring.addColorStop(0, '#F2C070');
+    ring.addColorStop(0.55, '#D6913A');
+    ring.addColorStop(1, '#8B4E16');
+    ctx.fillStyle = ring;
+    ctx.beginPath(); ctx.arc(ix, iy, eyeR*0.88, 0, 6.2832); ctx.fill();
+    // violet inner iris
+    const ig = ctx.createRadialGradient(ix-eyeR*0.15, iy-eyeR*0.18, 1, ix, iy, eyeR*0.55);
+    ig.addColorStop(0, '#7A55B8');
+    ig.addColorStop(0.55, '#3A2472');
+    ig.addColorStop(1, '#150B36');
+    ctx.fillStyle = ig;
+    ctx.beginPath(); ctx.arc(ix, iy, eyeR*0.62, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = '#0F0620';
+    ctx.beginPath(); ctx.arc(ix, iy, eyeR*0.34, 0, 6.2832); ctx.fill();
+    // catchlights
+    ctx.fillStyle = 'rgba(255,255,255,0.97)';
+    ctx.beginPath(); ctx.arc(ix-eyeR*0.22, iy-eyeR*0.26, eyeR*0.2, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'rgba(200,230,255,0.7)';
+    ctx.beginPath(); ctx.arc(ix+eyeR*0.25, iy+eyeR*0.3, eyeR*0.1, 0, 6.2832); ctx.fill();
+    // lid (mostly open; drops when puzzled)
+    if (lid > 0.08) {
+      const lidY = ey - eyeR*1.08 + lid*eyeR*2.16;
+      ctx.fillStyle = '#E4E6EE';
+      ctx.fillRect(ex - eyeR*1.2, ey - eyeR*1.3, eyeR*2.4, lidY - (ey - eyeR*1.3));
+      ctx.strokeStyle = 'rgba(80,90,130,0.5)'; ctx.lineWidth = 1.8*SC;
+      ctx.beginPath(); ctx.moveTo(ex - eyeR, lidY); ctx.quadraticCurveTo(ex, lidY + 3*SC, ex + eyeR, lidY); ctx.stroke();
+    }
+    ctx.restore();
+    // delighted squint arc
+    if (mo === 1) {
+      ctx.strokeStyle = 'rgba(110,130,180,0.75)'; ctx.lineWidth = 2.5*SC; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(ex, ey - eyeR*0.1, eyeR*1.02, Math.PI+0.55, 6.2832-0.55); ctx.stroke();
+    }
+  }
+  const nEx = -bw*0.14, nEy = -bh*0.42, nR = 0.24*bw;
+  const fEx = bw*0.64,  fEy = -bh*0.52, fR = 0.21*bw;
+  drawEye(fEx, fEy, fR);
+  drawEye(nEx, nEy, nR);
+  // puzzled brows
+  if (mo === -1) {
+    ctx.strokeStyle = 'rgba(70,80,130,0.7)'; ctx.lineWidth = 2.6*SC; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(nEx - 15*SC, nEy - nR*1.45); ctx.quadraticCurveTo(nEx, nEy - nR*1.7, nEx + 13*SC, nEy - nR*1.45); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fEx - 12*SC, fEy - fR*1.5); ctx.quadraticCurveTo(fEx, fEy - fR*1.75, fEx + 10*SC, fEy - fR*1.5); ctx.stroke();
+  }
+
+  // darkness when covered
+  if (S.bulbBright < 0.7) {
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(0, 0, bw*1.6, bh*2.2, 0, 0, 6.2832); ctx.clip();
+    ctx.fillStyle = 'rgba(8,16,42,'+(0.45*(1-S.bulbBright))+')';
+    ctx.fillRect(-bw*1.7, -bh*2.4, bw*3.4, bh*4.8);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// Lure: translucent stalk from the forehead arcing up and forward; glowing pearl.
+function anglerDrawLure(ctx, S, SC) {
+  const t = S.t;
+  const F = S.facing || 1;
+  const bw = 116*SC, bh = 90*SC;
+  const py = S.pos.y + Math.sin(t*1.3)*3;
+  const baseX = S.pos.x + F*bw*0.16;
+  const baseY = py - bh*0.92;
+  const bwx = S.pos.x + S.bulb.x, bwy = py + S.bulb.y;
+  const wob = Math.hypot(S.bulb.vx||0, S.bulb.vy||0)*0.5;
+  // arc peaks above and slightly forward of the forehead (measured ~(0.45bw,-2.2bh) at rest)
+  const cpx = baseX + F*bw*0.55 + (bwx-baseX)*0.12 + wob*Math.sin(t*10)*0.4;
+  const cpy = Math.min(baseY, bwy) - bh*1.1;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(30,40,80,0.35)'; ctx.lineWidth = 9*SC;
+  ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.quadraticCurveTo(cpx, cpy, bwx, bwy); ctx.stroke();
+  const sg = ctx.createLinearGradient(baseX, baseY, bwx, bwy);
+  sg.addColorStop(0, 'rgba(180,205,240,0.9)'); sg.addColorStop(1, 'rgba(215,230,250,0.9)');
+  ctx.strokeStyle = sg; ctx.lineWidth = 6.4*SC;
+  ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.quadraticCurveTo(cpx, cpy, bwx, bwy); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.4*SC;
+  ctx.beginPath(); ctx.moveTo(baseX, baseY - 1.5*SC); ctx.quadraticCurveTo(cpx, cpy - 1.5*SC, bwx, bwy - 1.5*SC); ctx.stroke();
+
+  // pearl bulb
+  const bR = 0.19*bw*(1+Math.sin(t*3)*0.03);
+  if (S.bulbBright > 0.1) {
+    const halo = ctx.createRadialGradient(bwx, bwy, bR*0.4, bwx, bwy, bR*3.6);
+    halo.addColorStop(0, 'hsla('+S.bulbHue+',85%,82%,'+(0.55*S.bulbBright)+')');
+    halo.addColorStop(1, 'hsla('+S.bulbHue+',85%,82%,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(bwx, bwy, bR*3.6, 0, 6.2832); ctx.fill();
+  }
+  const bgb = ctx.createRadialGradient(bwx-bR*0.3, bwy-bR*0.35, 0, bwx, bwy, bR);
+  if (S.bulbBright > 0.15) {
+    bgb.addColorStop(0, 'rgba(255,255,255,0.99)');
+    bgb.addColorStop(0.45, 'hsla('+S.bulbHue+',80%,'+(84+8*S.bulbBright)+'%,0.98)');
+    bgb.addColorStop(0.85, 'hsla('+S.bulbHue+',70%,66%,0.97)');
+    bgb.addColorStop(1, 'hsla('+S.bulbHue+',60%,52%,0.96)');
+  } else {
+    bgb.addColorStop(0, 'rgba(200,208,225,0.92)');
+    bgb.addColorStop(0.5, 'rgba(135,145,170,0.92)');
+    bgb.addColorStop(1, 'rgba(70,80,105,0.95)');
+  }
+  ctx.fillStyle = bgb;
+  ctx.beginPath(); ctx.arc(bwx, bwy, bR, 0, 6.2832); ctx.fill();
+  // pearl iridescent rim
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.5*SC;
+  ctx.beginPath(); ctx.arc(bwx, bwy, bR*0.95, 0, 6.2832); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,'+(0.7+0.25*S.bulbBright)+')';
+  ctx.beginPath(); ctx.ellipse(bwx-bR*0.32, bwy-bR*0.38, bR*0.26, bR*0.18, -0.6, 0, 6.2832); ctx.fill();
+}
+
+
+
+// Octopus core — pure draw functions, no DOM.
+// Arms are curvature-integrated chains: base direction + curvature that grows toward
+// the tip => real spiral curls. Reaching blends the chain toward a curve that wraps
+// the finger. All geometry in world space.
+
+const OCTO_NARMS = 8;
+const OCTO_NSEG = 26;
+
+function octoMakeArms(SC) {
+  const arms = [];
+  for (let i = 0; i < OCTO_NARMS; i++) {
+    const u = (i - (OCTO_NARMS-1)/2) / ((OCTO_NARMS-1)/2);  // -1..1 left..right
+    arms.push({
+      u,
+      len: (150 + (Math.abs(u) > 0.7 ? 55 : 0) + Math.random()*18) * SC,
+      curlSign: u < 0 ? 1 : -1,
+      curlAmt: 5.0 + Math.random()*1.6 + (Math.abs(u) > 0.7 ? 1.6 : 0),
+      phase: Math.random()*6.28,
+      hue: 275,
+      reach: 0,          // 0..1 blend toward finger
+      reachTarget: null, // {x,y}
+      waveEnd: -1,
+      rippleU: -1,       // 0..1 front of color ripple travelling down this arm (-1 = none)
+    });
+  }
+  return arms;
+}
+
+// chain of points for an arm in its current state
+function octoArmChain(arm, S, SC) {
+  const bodyW = S.bodyW, bodyH = S.bodyH;
+  const u = arm.u;
+  const baseX = S.pos.x + u * bodyW * 0.62;
+  const baseY = S.pos.y + bodyH * 0.52 - Math.abs(u) * bodyH * 0.10;
+  const breath = 0.5 + 0.5*Math.sin(S.t*0.85 + arm.phase*0.25);
+  const spread = 0.76 + breath*0.18;
+  const th0 = Math.PI/2 - u * spread + Math.sin(S.t*0.8 + arm.phase) * 0.09;
+  const ds = arm.len / OCTO_NSEG;
+
+  // idle chain: integrate curvature that grows toward the tip -> spiral curl
+  const idle = [];
+  {
+    let x = baseX, y = baseY, th = th0;
+    const kTip = arm.curlAmt / arm.len * (1 + Math.sin(S.t*0.7 + arm.phase*2)*0.12);
+    for (let k = 0; k <= OCTO_NSEG; k++) {
+      idle.push({x, y});
+      const uu = k / OCTO_NSEG;
+      const kap = kTip * Math.pow(uu, 2.2) * arm.curlSign * arm.len / OCTO_NSEG * 1.0;
+      th += kap;
+      x += Math.cos(th) * ds;
+      y += Math.sin(th) * ds;
+    }
+  }
+
+  // reach chain: head toward target, wrap the last quarter around it
+  let pts = idle;
+  if (arm.reach > 0.01 && arm.reachTarget) {
+    const reachPts = [];
+    const tx = arm.reachTarget.x, ty = arm.reachTarget.y;
+    const wrapR = 20*SC;
+    const dxa = tx - baseX, dya = ty - baseY;
+    const distT = Math.hypot(dxa, dya) || 1;
+    const thT = Math.atan2(dya, dxa);
+    const straightN = Math.floor(OCTO_NSEG * 0.72);
+    let x = baseX, y = baseY;
+    for (let k = 0; k <= OCTO_NSEG; k++) {
+      if (k <= straightN) {
+        const uu = k / straightN;
+        // slight sag toward the target
+        const sag = Math.sin(uu*Math.PI) * Math.min(30*SC, distT*0.12);
+        x = baseX + dxa*uu - Math.cos(thT+Math.PI/2)*0 + 0;
+        y = baseY + dya*uu + sag*0.4;
+        // stop the straight section a wrap-radius short of the target
+        const shortU = Math.max(0, 1 - (wrapR*1.4)/distT);
+        x = baseX + dxa*uu*shortU + 0;
+        y = baseY + dya*uu*shortU + sag*0.4;
+        reachPts.push({x, y});
+      } else {
+        // spiral around the target point
+        const uu = (k - straightN) / (OCTO_NSEG - straightN);
+        const ang = thT - Math.PI/2*arm.curlSign + uu * 4.6 * arm.curlSign;
+        const rr = wrapR * (1.15 - uu*0.45);
+        reachPts.push({x: tx + Math.cos(ang)*rr, y: ty + Math.sin(ang)*rr});
+      }
+    }
+    pts = idle.map((p, k) => ({
+      x: p.x + (reachPts[k].x - p.x) * arm.reach,
+      y: p.y + (reachPts[k].y - p.y) * arm.reach
+    }));
+  }
+
+  // jet propulsion: arms stream behind, opposite the jet direction
+  if (S.jetAmt > 0.01 && S.jetDir) {
+    const tdx = -S.jetDir.x, tdy = -S.jetDir.y;
+    const spread = arm.u * 0.5;                       // slight fan across the arms
+    const ca = Math.cos(spread), sa = Math.sin(spread);
+    const dx2 = tdx*ca - tdy*sa, dy2 = tdx*sa + tdy*ca;
+    const px2 = -dy2, py2 = dx2;                      // perpendicular for wiggle
+    const trail = [];
+    for (let k = 0; k <= OCTO_NSEG; k++) {
+      const uu = k / OCTO_NSEG;
+      const wig = Math.sin(uu*5.5 - S.t*16 + arm.phase) * 10*SC * uu;
+      trail.push({
+        x: baseX + dx2*uu*arm.len*0.95 + px2*wig,
+        y: baseY + dy2*uu*arm.len*0.95 + py2*wig
+      });
+    }
+    pts = pts.map((p, k) => ({
+      x: p.x + (trail[k].x - p.x) * S.jetAmt,
+      y: p.y + (trail[k].y - p.y) * S.jetAmt
+    }));
+  }
+
+  // wave-goodbye: raise the outer half and swing it
+  if (arm.waveEnd > 0 && S.t < arm.waveEnd) {
+    const wp = 1 - (arm.waveEnd - S.t) / 1.2;                  // 0..1 through the wave
+    const amp = Math.sin(wp * Math.PI);                        // ease in/out
+    const swing = Math.sin(S.t * 11) * 34*SC * amp;
+    pts = pts.map((p, k) => {
+      const uu = k / OCTO_NSEG;
+      const lift = Math.pow(Math.max(0, uu - 0.3) / 0.7, 1.5);
+      return {x: p.x + swing * lift, y: p.y - 60*SC * lift * amp};
+    });
+  }
+  return {pts, baseX, baseY};
+}
+
+function octoDrawArm(ctx, arm, chain, SC, alpha, hueAt) {
+  const pts = chain.pts;
+  // tapered filled body: build left/right edge polygons
+  const L = [], R = [];
+  for (let k = 0; k < pts.length; k++) {
+    const p = pts[k];
+    const q = pts[Math.min(pts.length-1, k+1)];
+    let tx = q.x - p.x, ty = q.y - p.y;
+    if (k === pts.length-1) { const q2 = pts[k-1]; tx = p.x - q2.x; ty = p.y - q2.y; }
+    const tl = Math.hypot(tx, ty) || 1;
+    const nx = -ty/tl, ny = tx/tl;
+    const uu = k / (pts.length-1);
+    const w = (17 - uu*14.6) * SC;
+    L.push({x: p.x + nx*w, y: p.y + ny*w});
+    R.push({x: p.x - nx*w, y: p.y - ny*w});
+  }
+  // fill in bands so hue can vary along the arm (color flows base->tip)
+  const FLOW_LAG = 0.75;   // seconds for color to travel the whole arm
+  const NB = 7;
+  const hueOf = hueAt ? (u2) => hueAt(u2 * FLOW_LAG) : () => arm.hue;
+  for (let b = 0; b < NB; b++) {
+    const k0 = Math.floor(b/NB * (pts.length-1));
+    const k1 = Math.min(pts.length-1, Math.floor((b+1)/NB * (pts.length-1)) + 1);
+    const bandHue = hueOf((b+0.5)/NB);
+    ctx.fillStyle = 'hsla(' + bandHue + ',52%,58%,' + (0.96*alpha) + ')';
+    ctx.beginPath();
+    ctx.moveTo(L[k0].x, L[k0].y);
+    for (let k = k0; k <= k1; k++) ctx.lineTo(L[k].x, L[k].y);
+    for (let k = k1; k >= k0; k--) ctx.lineTo(R[k].x, R[k].y);
+    ctx.closePath();
+    ctx.fill();
+  }
+  const midHue = hueOf(0.5);
+  const g = 'hsla(' + midHue + ',52%,';
+  // rounded tip
+  ctx.fillStyle = 'hsla(' + hueOf(1) + ',52%,55%,' + (0.96*alpha) + ')';
+  const tip = pts[pts.length-1];
+  ctx.beginPath(); ctx.arc(tip.x, tip.y, 2.6*SC, 0, 6.2832); ctx.fill();
+  // darker underside edge on curl side
+  ctx.strokeStyle = g + '38%,' + (0.5*alpha) + ')';
+  ctx.lineWidth = 2.5*SC;
+  ctx.beginPath();
+  const inner = arm.curlSign > 0 ? L : R;
+  ctx.moveTo(inner[0].x, inner[0].y);
+  for (const p of inner) ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+  // top highlight on outer side
+  ctx.strokeStyle = g + '76%,' + (0.5*alpha) + ')';
+  ctx.lineWidth = 3.5*SC;
+  const outer = arm.curlSign > 0 ? R : L;
+  ctx.beginPath();
+  ctx.moveTo(outer[1].x, outer[1].y);
+  for (let k = 1; k < Math.floor(outer.length*0.8); k++) ctx.lineTo(outer[k].x, outer[k].y);
+  ctx.stroke();
+
+  // pearl suckers on the curl (inner) side
+  const nS = 9;
+  for (let s = 0; s < nS; s++) {
+    const uu = 0.16 + (s/(nS-1))*0.80;
+    const k = Math.round(uu * (pts.length-1));
+    const p = pts[k];
+    const q = pts[Math.min(pts.length-1, k+1)];
+    let tx = q.x - p.x, ty = q.y - p.y;
+    const tl = Math.hypot(tx, ty) || 1;
+    const nx = -ty/tl * arm.curlSign, ny = tx/tl * arm.curlSign;
+    const w = (17 - uu*14.6) * SC;
+    const sr = (6.5 - uu*4.4) * SC * (arm.suckerPop === s ? 1.5 : 1);
+    const sx = p.x + nx*(w + sr*0.35);
+    const sy = p.y + ny*(w + sr*0.35);
+    const pg = ctx.createRadialGradient(sx - sr*0.3, sy - sr*0.3, 0, sx, sy, sr);
+    pg.addColorStop(0, 'rgba(255,251,253,' + (0.98*alpha) + ')');
+    pg.addColorStop(0.65, 'rgba(240,226,240,' + (0.95*alpha) + ')');
+    pg.addColorStop(1, 'rgba(196,170,210,' + (0.9*alpha) + ')');
+    ctx.fillStyle = pg;
+    ctx.beginPath(); ctx.arc(sx, sy, sr, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,' + (0.85*alpha) + ')';
+    ctx.beginPath(); ctx.arc(sx - sr*0.3, sy - sr*0.35, sr*0.28, 0, 6.2832); ctx.fill();
+  }
+}
+
+
+function octoSuckerPositions(arm, chain, SC) {
+  const pts = chain.pts;
+  const out = [];
+  const nS = 9;
+  for (let s = 0; s < nS; s++) {
+    const uu = 0.16 + (s/(nS-1))*0.80;
+    const k = Math.round(uu * (pts.length-1));
+    const p = pts[k];
+    const q = pts[Math.min(pts.length-1, k+1)];
+    let tx = q.x - p.x, ty = q.y - p.y;
+    const tl = Math.hypot(tx, ty) || 1;
+    const nx = -ty/tl * arm.curlSign, ny = tx/tl * arm.curlSign;
+    const w = (17 - uu*14.6) * SC;
+    const sr = (6.5 - uu*4.4) * SC;
+    out.push({x: p.x + nx*(w + sr*0.35), y: p.y + ny*(w + sr*0.35), r: sr, idx: s});
+  }
+  return out;
+}
+
+// Whole octopus. S: {pos, bodyW, bodyH, t, hue, holdHue, holding, surprised,
+//                    alpha, eyeScale, arms, peek (0..1: how far she's peeking back out)}
+function octoDraw(ctx, S, SC) {
+  const bodyW = S.bodyW, bodyH = S.bodyH;
+  const alpha = S.alpha;
+  const dispHue = (S.hueNow !== undefined) ? S.hueNow : (S.holding ? S.holdHue : S.hue);
+
+  // chains (computed once, reused for draw + interaction geometry)
+  const chains = S.arms.map(a => octoArmChain(a, S, SC));
+
+  // arms back-to-front: outer arms first, central arms last
+  const order = S.arms.map((a, i) => i).sort((x, y) => Math.abs(S.arms[y].u) - Math.abs(S.arms[x].u));
+  for (const i of order) octoDrawArm(ctx, S.arms[i], chains[i], SC, alpha, S.hueAt);
+
+  // ---- mantle: tall dome, narrower at the bottom ----
+  ctx.save();
+  ctx.translate(S.pos.x, S.pos.y + Math.sin(S.t*1.3)*4);
+  const pz = S.pulse || 0;
+  ctx.scale(1 - pz*0.07, 1 + pz*0.09);
+  const mant = () => {
+    ctx.beginPath();
+    ctx.moveTo(-bodyW*0.72, bodyH*0.52);
+    ctx.bezierCurveTo(-bodyW*1.06, bodyH*0.10, -bodyW*0.92, -bodyH*0.72, 0, -bodyH*0.78);
+    ctx.bezierCurveTo(bodyW*0.92, -bodyH*0.72, bodyW*1.06, bodyH*0.10, bodyW*0.72, bodyH*0.52);
+    ctx.bezierCurveTo(bodyW*0.35, bodyH*0.66, -bodyW*0.35, bodyH*0.66, -bodyW*0.72, bodyH*0.52);
+    ctx.closePath();
+  };
+  const hg = ctx.createRadialGradient(-bodyW*0.24, -bodyH*0.34, 6*SC, 0, -bodyH*0.05, bodyW*1.5);
+  hg.addColorStop(0, 'hsla('+dispHue+',52%,84%,'+(0.98*alpha)+')');
+  hg.addColorStop(0.45, 'hsla('+dispHue+',55%,66%,'+(0.98*alpha)+')');
+  hg.addColorStop(1, 'hsla('+dispHue+',60%,42%,'+(0.98*alpha)+')');
+  ctx.fillStyle = hg;
+  mant(); ctx.fill();
+
+  ctx.save();
+  mant(); ctx.clip();
+  // sparkle scale texture (like the reference's sequin skin)
+  for (let k = 0; k < 46; k++) {
+    const sx = Math.sin(k*12.9898)*0.5;
+    const sy = Math.sin(k*78.233)*0.5;
+    const px = sx*bodyW*1.3;
+    const py = -bodyH*0.15 + sy*bodyH*1.1;
+    const tw = 0.4 + 0.6*Math.abs(Math.sin(S.t*1.4 + k));
+    const shue = (dispHue + k*9) % 360;
+    ctx.fillStyle = 'hsla('+shue+',80%,82%,'+(0.22*tw*alpha)+')';
+    ctx.beginPath(); ctx.arc(px, py, (3.2+((k*7)%5))*SC*0.7, 0, 6.2832); ctx.fill();
+  }
+  // iridescent drifting sheens
+  for (let i = 0; i < 3; i++) {
+    const ihue = (S.t*22 + i*115) % 360;
+    const sx = Math.sin(S.t*0.5+i*1.3)*bodyW*0.4;
+    const sy = Math.cos(S.t*0.4+i*1.1)*bodyH*0.3 - bodyH*0.1;
+    const ig2 = ctx.createRadialGradient(sx, sy, 0, sx, sy, bodyW*0.7);
+    ig2.addColorStop(0, 'hsla('+ihue+',82%,76%,'+(0.15*alpha)+')');
+    ig2.addColorStop(1, 'hsla('+ihue+',82%,76%,0)');
+    ctx.fillStyle = ig2;
+    ctx.beginPath(); ctx.arc(sx, sy, bodyW*0.7, 0, 6.2832); ctx.fill();
+  }
+  // top sheen
+  const th2 = ctx.createRadialGradient(-bodyW*0.2, -bodyH*0.52, 4*SC, -bodyW*0.2, -bodyH*0.52, bodyW*0.6);
+  th2.addColorStop(0, 'rgba(255,255,255,'+(0.4*alpha)+')');
+  th2.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = th2;
+  ctx.beginPath(); ctx.arc(-bodyW*0.2, -bodyH*0.52, bodyW*0.6, 0, 6.2832); ctx.fill();
+  ctx.restore();
+
+  // ---- face (low on the mantle) ----
+  const faceY = bodyH*0.16;
+  // blush
+  ctx.fillStyle = 'rgba(242,148,178,'+(0.5*alpha)+')';
+  ctx.beginPath(); ctx.ellipse(-bodyW*0.5, faceY+bodyH*0.13, 17*SC, 9.5*SC, 0.12, 0, 6.2832); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(bodyW*0.5, faceY+bodyH*0.13, 17*SC, 9.5*SC, -0.12, 0, 6.2832); ctx.fill();
+  // eyes
+  const eyeR = bodyW*0.21 * (S.eyeScale || 1);
+  const eyeSep = bodyW*0.34;
+  for (const es of [-1, 1]) {
+    const ex = es*eyeSep, ey = faceY - bodyH*0.06;
+    ctx.fillStyle = 'rgba(255,255,255,'+(0.99*alpha)+')';
+    ctx.beginPath(); ctx.ellipse(ex, ey, eyeR*1.04, eyeR*1.12, 0, 0, 6.2832); ctx.fill();
+    const ig3 = ctx.createRadialGradient(ex-eyeR*0.2, ey-eyeR*0.25, 2, ex, ey, eyeR*0.8);
+    ig3.addColorStop(0, '#7A4FB5');
+    ig3.addColorStop(0.45, '#3A2275');
+    ig3.addColorStop(1, '#150A38');
+    ctx.fillStyle = ig3;
+    ctx.beginPath(); ctx.arc(ex, ey, eyeR*0.8, 0, 6.2832); ctx.fill();
+    const gr = ctx.createRadialGradient(ex, ey, eyeR*0.18, ex, ey, eyeR*0.55);
+    gr.addColorStop(0, 'rgba(250,190,90,'+(0.7*alpha)+')');
+    gr.addColorStop(1, 'rgba(250,190,90,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.arc(ex, ey, eyeR*0.55, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = '#120722';
+    ctx.beginPath(); ctx.arc(ex, ey, eyeR*0.38, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,'+(0.97*alpha)+')';
+    ctx.beginPath(); ctx.arc(ex-eyeR*0.17, ey-eyeR*0.21, eyeR*0.17, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'rgba(185,222,255,'+(0.7*alpha)+')';
+    ctx.beginPath(); ctx.arc(ex+eyeR*0.2, ey+eyeR*0.22, eyeR*0.09, 0, 6.2832); ctx.fill();
+  }
+  // mouth
+  if (S.surprised) {
+    ctx.fillStyle = 'rgba(58,22,52,'+(0.9*alpha)+')';
+    ctx.beginPath(); ctx.ellipse(0, faceY+bodyH*0.14, 9*SC, 12*SC, 0, 0, 6.2832); ctx.fill();
+  } else {
+    ctx.strokeStyle = 'rgba(70,32,80,'+(0.85*alpha)+')';
+    ctx.lineWidth = 3*SC; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(0, faceY+bodyH*0.09, 9.5*SC, 0.35, Math.PI-0.35); ctx.stroke();
+    // smile corners
+    ctx.beginPath(); ctx.arc(-9.5*SC*Math.cos(0.35)-2*SC, faceY+bodyH*0.09+9.5*SC*Math.sin(0.35), 1.6*SC, 0, 6.2832);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  return chains;   // caller can use them for hit tests
+}
+
+
+
+</script>
+
+<script>
+(function(){
+const cv = document.getElementById('tank-a'), ctx = cv.getContext('2d');
+const W = VW, H = VH;
+cv.width = W; cv.height = H;
+const SC = PORTRAIT ? 0.85 : 1.05;
+
+let t = 0, drift = 1;
+const S = {
+  pos: {x: W*0.5, y: H*0.55}, tilt: 0, t: 0,
+  bulb: {x: 100*SC, y: -162*SC, vx: 0, vy: 0},
+  bulbHue: 45, bulbBright: 1,
+  mouth: 0, eyeLook: {x: 0.15, y: -0.45}
+};
+let vel = {x:0, y:0}, targetP = {x: W*0.6, y: H*0.45};
+let cruise = 1, restT = 0, nextMove = 3+Math.random()*3;
+let heading = 0, bank = 0, hesit = 0, legSpd = 1, wanderW = Math.random()*6.28;
+let F = 1;
+let lookUpUntil = -1, peekabooEnd = -1, coverStart = -1;
+let ptrs = new Map();
+let ambient = [];
+for (let i = 0; i < 24; i++) ambient.push({x: Math.random()*W, y: Math.random()*H, r: 3+Math.random()*8, s: 0.2+Math.random()*0.5, w: Math.random()*6.28});
+
+function pickTarget() {
+  targetP.x = 200+Math.random()*(W-400);
+  targetP.y = 230+Math.random()*(H-420);
+}
+pickTarget();
+
+function bulbRest() { return {x: F*100*SC, y: -162*SC}; }
+if (typeof window !== 'undefined') window.__anglerBulb = () => bulbWorld();
+function bulbWorld() {
+  return {x: S.pos.x + S.bulb.x, y: S.pos.y + Math.sin(t*1.4)*3 + S.bulb.y};
+}
+
+function step() {
+  t += 0.016; S.t = t;
+  // classify held pointers every frame: a still finger on the bulb = covering
+  for (const pt of ptrs.values()) {
+    const moved = Math.hypot(pt.x - pt.startPos.x, pt.y - pt.startPos.y);
+    if (pt.mode === 'drag' && (t - pt.startT) > 0.3 && moved < 18*SC) pt.mode = 'cover';
+    else if (pt.mode === 'cover' && moved > 32*SC) { pt.mode = 'drag'; pt.startPos = {x: pt.x, y: pt.y}; }
+  }
+  const covering = [...ptrs.values()].some(p => p.mode === 'cover');
+  const dragPtr = [...ptrs.values()].find(p => p.mode === 'drag' || p.mode === 'cover');
+
+  // fish swimming: slow surge-coast, gentle wander, soft banking
+  const beat = Math.pow(Math.max(0, Math.sin(t*(2.6 + drift*1.2))), 2);
+  if (ptrs.size === 0) {
+    const dx = targetP.x-S.pos.x, dy = targetP.y-S.pos.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 70) {
+      bank *= 0.96;
+      if (cruise > 0) { cruise--; pickTarget(); legSpd = 0.85+Math.random()*0.5; wanderW = Math.random()*6.28; }
+      else {
+        restT += 0.016;
+        if (restT > nextMove) { restT = 0; nextMove = 2.5+Math.random()*4; cruise = 1+Math.floor(Math.random()*3); pickTarget(); legSpd = 0.85+Math.random()*0.5; wanderW = Math.random()*6.28; }
+      }
+    } else {
+      const want = Math.atan2(dy, dx);
+      let da = want - heading;
+      while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832;
+      const wander = Math.sin(t*0.5+wanderW)*0.28 + Math.sin(t*0.19+wanderW*2)*0.18;
+      heading += da*0.03 + wander*0.01;
+      if (Math.cos(heading) > 0.3) F = 1; else if (Math.cos(heading) < -0.3) F = -1;
+      bank += (Math.max(-0.35, Math.min(0.35, da))*0.6 - bank)*0.05;
+      if (hesit > 0) hesit -= 0.016;
+      else if (Math.random() < 0.0015) hesit = 0.4+Math.random()*0.6;
+      const thr = (hesit > 0 ? 0.12 : 1)*(0.25 + 0.75*beat)*legSpd;
+      vel.x += Math.cos(heading)*0.07*drift*thr;
+      vel.y += Math.sin(heading)*0.07*drift*thr;
+    }
+  } else {
+    bank *= 0.94;
+    vel.x *= 0.9; vel.y *= 0.9;   // settle quickly while being touched
+  }
+  vel.x *= 0.97; vel.y *= 0.97;
+  const spdNow = Math.hypot(vel.x, vel.y);
+  if (spdNow > 2.3) { vel.x *= 2.3/spdNow; vel.y *= 2.3/spdNow; }
+  S.pos.x += vel.x; S.pos.y += vel.y;
+  S.pos.x = Math.max(170*SC, Math.min(W-170*SC, S.pos.x));
+  S.pos.y = Math.max(260*SC, Math.min(H-150*SC, S.pos.y));
+  S.swim = Math.min(1, spdNow*0.55);
+  S.beat = beat * S.swim;
+  S.tilt += ((Math.max(-0.26, Math.min(0.26, vel.y*0.07)) * F) - S.tilt)*0.06;
+  S.facing = F;
+
+  // bulb spring
+  const rest = bulbRest();
+  if (dragPtr) {
+    const hp = {x: S.pos.x, y: S.pos.y + Math.sin(t*1.4)*3};
+    S.bulb.vx += ((dragPtr.x - hp.x) - S.bulb.x) * 0.35;
+    S.bulb.vy += ((dragPtr.y - hp.y) - S.bulb.y) * 0.35;
+  } else {
+    S.bulb.vx += (rest.x - S.bulb.x) * 0.085;
+    S.bulb.vy += (rest.y - S.bulb.y) * 0.085;
+  }
+  S.bulb.vx *= 0.88; S.bulb.vy *= 0.88;
+  S.bulb.x += S.bulb.vx; S.bulb.y += S.bulb.vy;
+  const bd = Math.hypot(S.bulb.x - rest.x, S.bulb.y - rest.y);
+  if (bd > 300*SC) {
+    const s2 = 300*SC/bd;
+    S.bulb.x = rest.x + (S.bulb.x - rest.x)*s2;
+    S.bulb.y = rest.y + (S.bulb.y - rest.y)*s2;
+  }
+
+  // cover / peekaboo state machine
+  if (covering) {
+    if (coverStart < 0) coverStart = t;
+    S.bulbBright = Math.max(0.03, S.bulbBright - 0.09);
+    S.mouth = -1;
+    // puzzled: eyes dart side to side in the dark
+    S.eyeLook.x += ((Math.sin(t*4.2)*0.8) - S.eyeLook.x)*0.25;
+    S.eyeLook.y += (0.12 - S.eyeLook.y)*0.12;
+  } else {
+    if (coverStart > 0 && (t - coverStart) > 0.3) peekabooEnd = t + 1.15;
+    coverStart = -1;
+    S.bulbBright = Math.min(1, S.bulbBright + 0.07);
+  }
+
+  const bw = bulbWorld();
+  const hp = {x: S.pos.x, y: S.pos.y + Math.sin(t*1.4)*3};
+  const bdx = bw.x - hp.x, bdy = (bw.y - hp.y) + 60*SC;
+  const bl = Math.hypot(bdx, bdy) || 1;
+  const bulbSpeed = Math.hypot(S.bulb.vx, S.bulb.vy);
+
+  if (!covering) {
+    if (t < peekabooEnd) {
+      // delighted peekaboo
+      S.mouth = 1;
+      S.eyeLook.x += (0 - S.eyeLook.x)*0.22;
+      S.eyeLook.y += (-0.8 - S.eyeLook.y)*0.2;
+    } else if (t < lookUpUntil || bulbSpeed > 1.6 || dragPtr) {
+      // eyes track the bulb hard (after tap, or while it bobs)
+      S.mouth = 0;
+      S.eyeLook.x += ((bdx/bl)*1.0 - S.eyeLook.x)*0.22;
+      S.eyeLook.y += ((bdy/bl)*1.0 - S.eyeLook.y)*0.22;
+    } else {
+      // idle: soft forward gaze with an occasional glance up at the light
+      S.mouth = 0;
+      const glance = Math.sin(t*0.4) > 0.86 ? 1 : 0;
+      const gx = glance ? (bdx/bl)*0.8 : 0.12*Math.sin(t*0.6);
+      const gy = glance ? (bdy/bl)*0.8 : -0.3;
+      S.eyeLook.x += (gx - S.eyeLook.x)*0.06;
+      S.eyeLook.y += (gy - S.eyeLook.y)*0.06;
+    }
+  }
+
+  for (const b of ambient) { b.y -= b.s; b.x += Math.sin(t*2+b.w)*0.3; if (b.y < -15) { b.y = H+15; b.x = Math.random()*W; } }
+}
+
+function drawBubble(x, y, r, alpha) {
+  if (!isFinite(x)||!isFinite(y)||!isFinite(r)||r<=0) return;
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#B5D4F4'; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+  ctx.fillStyle = 'rgba(230,241,251,0.16)';
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.72)';
+  ctx.beginPath(); ctx.arc(x-r*0.32, y-r*0.32, r*0.24, 0, 6.2832); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  if (APP.cur !== 'a') { requestAnimationFrame(draw); return; }
+  try {
+    ctx.fillStyle = '#0A2A54'; ctx.fillRect(0, 0, W, H);
+    // light shafts
+    for (let k = 0; k < 4; k++) {
+      const sx = W*(0.15 + k*0.22) + Math.sin(t*0.3+k)*40;
+      const shg = ctx.createLinearGradient(sx, 0, sx-60, H);
+      shg.addColorStop(0, 'rgba(180,220,255,0.13)');
+      shg.addColorStop(1, 'rgba(180,220,255,0)');
+      ctx.fillStyle = shg;
+      ctx.beginPath();
+      ctx.moveTo(sx-40, 0); ctx.lineTo(sx+40, 0); ctx.lineTo(sx-90, H); ctx.lineTo(sx-140, H); ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = '#173C6E';
+    ctx.beginPath(); ctx.ellipse(W*0.3, H+40, 380, 140, 0, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(W*0.75, H+50, 420, 160, 0, 0, 6.2832); ctx.fill();
+    for (const b of ambient) drawBubble(b.x, b.y, b.r, 0.4);
+
+    // bulb scene glow (behind fish)
+    const bw = bulbWorld();
+    if (S.bulbBright > 0.1) {
+      const gg = ctx.createRadialGradient(bw.x, bw.y, 0, bw.x, bw.y, 250*SC);
+      gg.addColorStop(0, 'hsla('+S.bulbHue+',85%,72%,'+(0.3*S.bulbBright)+')');
+      gg.addColorStop(0.6, 'hsla('+S.bulbHue+',85%,72%,'+(0.07*S.bulbBright)+')');
+      gg.addColorStop(1, 'hsla('+S.bulbHue+',85%,72%,0)');
+      ctx.fillStyle = gg;
+      ctx.beginPath(); ctx.arc(bw.x, bw.y, 250*SC, 0, 6.2832); ctx.fill();
+    }
+
+    anglerDraw(ctx, S, SC);
+
+    // "the fish's world goes dark" when the bulb is covered
+    if (S.bulbBright < 0.85) {
+      ctx.fillStyle = 'rgba(2,8,26,'+(0.62*(1-S.bulbBright))+')';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    anglerDrawLure(ctx, S, SC);
+    step();
+  } catch (err) { ptrs.clear(); }
+  requestAnimationFrame(draw);
+}
+
+function toCanvas(e) {
+  const r = cv.getBoundingClientRect();
+  return {x: (e.clientX-r.left)/r.width*W, y: (e.clientY-r.top)/r.height*H};
+}
+
+cv.addEventListener('pointerdown', e => {
+  const p = toCanvas(e);
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+  const bw = bulbWorld();
+  const d = Math.hypot(p.x - bw.x, p.y - bw.y);
+  ptrs.set(e.pointerId, {x: p.x, y: p.y, startT: t, startPos: {x: p.x, y: p.y}, mode: d < 58*SC ? 'drag' : ''});
+});
+cv.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  const p = toCanvas(e);
+  const pt = ptrs.get(e.pointerId);
+  pt.x = p.x; pt.y = p.y;
+});
+function endPtr(e) {
+  const pt = ptrs.get(e.pointerId);
+  if (pt) {
+    const held = t - pt.startT;
+    const moved = Math.hypot(pt.x - pt.startPos.x, pt.y - pt.startPos.y);
+    const bw = bulbWorld();
+    const d = Math.hypot(pt.x - bw.x, pt.y - bw.y);
+    if (held < 0.3 && moved < 14 && d < 58*SC && pt.mode !== 'cover') {
+      // tap: new color + eyes dart up to look
+      S.bulbHue = (S.bulbHue + 55 + Math.random()*45) % 360;
+      lookUpUntil = t + 0.95;
+    }
+    ptrs.delete(e.pointerId);
+  }
+}
+cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointercancel', endPtr);
+document.getElementById('drift-a').addEventListener('input', e => drift = parseFloat(e.target.value));
+document.getElementById('light-a').addEventListener('click', () => {
+  S.bulbHue = (S.bulbHue + 55 + Math.random()*45) % 360;
+  lookUpUntil = t + 0.95;
+});
+draw();
+})();
+
+</script>
+
+<script>
+(function(){
+const cv = document.getElementById('tank-o'), ctx = cv.getContext('2d');
+const W = VW, H = VH;
+cv.width = W; cv.height = H;
+const SC = PORTRAIT ? 0.85 : 1.05;
+
+let t = 0, waveKnob = 1;
+const S = {
+  pos: {x: W*0.5, y: H*0.40},
+  bodyW: 100*SC, bodyH: 112*SC,
+  t: 0, hue: 275, holdHue: 275, holding: false,
+  surprised: false, alpha: 1, eyeScale: 1,
+  arms: octoMakeArms(SC),
+  jetAmt: 0, jetDir: null, pulse: 0,
+  hueNow: 275, hueAt: null
+};
+let vel = {x:0, y:0}, targetP = {x: W*0.6, y: H*0.4};
+let cruise = 1, restT = 0, nextMove = 4;
+let swimPhase = Math.random()*6.28;
+let holdStart = -1;
+let suckerGlows = [];
+let inkClouds = [];
+let surprise = null;      // {t0}
+let jetV = null;          // {x,y} jet velocity
+let ptrs = new Map();
+let ambient = [];
+for (let i = 0; i < 22; i++) ambient.push({x: Math.random()*W, y: Math.random()*H, r: 3+Math.random()*6, s: 0.15+Math.random()*0.4, w: Math.random()*6.28});
+
+// hue history ring buffer: arm color trails the head color in time,
+// so a new color visibly flows down the tentacles WHILE you hold.
+const HIST_N = 120;
+const hueHist = new Array(HIST_N).fill(275);
+let histIdx = 0;
+S.hueAt = function(delaySec) {
+  const back = Math.min(HIST_N-1, Math.round(delaySec * 60));
+  return hueHist[(histIdx - back + HIST_N*4) % HIST_N];
+};
+
+// tiny WebAudio pops
+let AC = null;
+function pop(pitch) {
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(pitch, AC.currentTime);
+    o.frequency.exponentialRampToValueAtTime(pitch*0.55, AC.currentTime + 0.09);
+    g.gain.setValueAtTime(0.12, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.11);
+    o.connect(g); g.connect(AC.destination);
+    o.start(); o.stop(AC.currentTime + 0.12);
+  } catch (err) {}
+}
+
+function pickTarget() {
+  targetP.x = 240+Math.random()*(W-480);
+  targetP.y = 200+Math.random()*(H-430);
+}
+pickTarget();
+
+function currentChains() {
+  return S.arms.map(a => octoArmChain(a, S, SC));
+}
+
+function startSurprise(dirX, dirY) {
+  // ink puffs at the launch point
+  for (let k = 0; k < 4; k++) {
+    inkClouds.push({
+      x: S.pos.x + (Math.random()-0.5)*90,
+      y: S.pos.y + (Math.random()-0.3)*90,
+      r: (16 + Math.random()*16)*SC,
+      vr: (55 + Math.random()*35)*SC,
+      life: 1
+    });
+  }
+  // jet away: given direction, or away from tank center
+  let dx = dirX, dy = dirY;
+  if (dx === undefined) {
+    dx = S.pos.x > W/2 ? -1 : 1;
+    dy = -0.25;
+  }
+  const dl = Math.hypot(dx, dy) || 1;
+  S.jetDir = {x: dx/dl, y: dy/dl};
+  jetV = {x: S.jetDir.x * 27*SC, y: S.jetDir.y * 27*SC};
+  surprise = {t0: t};
+  pop(200);
+}
+
+function step() {
+  t += 0.016; S.t = t;
+
+  // --- pending-pointer classification: swipe vs. hold decided by MOTION ---
+  for (const [, pt] of ptrs) {
+    if (pt.prevX === undefined) { pt.prevX = pt.x; pt.prevY = pt.y; }
+    const sp = Math.hypot(pt.x - pt.prevX, pt.y - pt.prevY);
+    pt.travel = (pt.travel || 0) + sp;
+    pt.spd = sp;
+    pt.prevX = pt.x; pt.prevY = pt.y;
+
+    if (pt.mode === 'pending' || pt.mode === 'none') {
+      const dBody = Math.hypot(pt.x - S.pos.x, pt.y - S.pos.y);
+      if (!surprise && pt.travel > 90*SC && pt.spd > 13 && dBody < 340*SC) {
+        startSurprise(S.pos.x - pt.x, S.pos.y - pt.y);   // jet directly away from the swipe
+        pt.mode = 'swiped';
+        continue;
+      }
+      if (pt.mode === 'pending' && (t - pt.startT) > 0.14 && pt.travel < 26*SC) {
+        // settled => a hold: claim the nearest arm
+        const chains = currentChains();
+        let best = -1, bestD = 240*SC;
+        for (let i = 0; i < S.arms.length; i++) {
+          const pts2 = chains[i].pts;
+          for (let k = Math.floor(pts2.length*0.3); k < pts2.length; k += 3) {
+            const d = Math.hypot(pt.x - pts2[k].x, pt.y - pts2[k].y);
+            if (d < bestD) { bestD = d; best = i; }
+          }
+        }
+        pt.mode = best >= 0 ? 'arm' : 'none';
+        if (best >= 0) pt.armIdx = best;
+      }
+    }
+  }
+
+  // --- surprise / jet sequence ---
+  if (surprise) {
+    const st = t - surprise.t0;
+    S.surprised = st < 1.7;
+    if (jetV) {
+      S.pos.x += jetV.x; S.pos.y += jetV.y;
+      jetV.x *= 0.935; jetV.y *= 0.935;
+      S.jetAmt = Math.min(1, S.jetAmt + 0.18);
+      if (Math.hypot(jetV.x, jetV.y) < 1.2) jetV = null;
+      S.alpha = Math.max(0.45, S.alpha - 0.05);
+      S.eyeScale = Math.min(1.3, S.eyeScale + 0.04);
+    } else {
+      S.jetAmt = Math.max(0, S.jetAmt - 0.05);
+      if (st < 2.2) {
+        S.alpha += (0.75 - S.alpha)*0.08;
+        S.eyeScale += (1.3 - S.eyeScale)*0.1;
+      } else if (st < 3.4) {
+        S.alpha += (1 - S.alpha)*0.07;
+        S.eyeScale += (1 - S.eyeScale)*0.07;
+      } else {
+        S.alpha = 1; S.eyeScale = 1; S.surprised = false; S.jetAmt = 0; S.jetDir = null;
+        surprise = null;
+        pickTarget();
+      }
+    }
+  }
+
+  // --- octopus pulse-glide swimming ---
+  const pts = [...ptrs.values()];
+  const busy = holdStart >= 0 || surprise;
+  let travelDir = null;
+  if (!busy && pts.length === 0) {
+    const dx = targetP.x-S.pos.x, dy = targetP.y-S.pos.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 70) {
+      if (cruise > 0) { cruise--; pickTarget(); }
+      else {
+        restT += 0.016;
+        if (restT > nextMove) { restT = 0; nextMove = 3+Math.random()*4; cruise = 1+Math.floor(Math.random()*3); pickTarget(); }
+      }
+    } else {
+      // mantle-pump cycle: sharp squeeze -> velocity burst -> long glide
+      swimPhase += 0.016 * 3.4;
+      const p = Math.pow(Math.max(0, Math.sin(swimPhase)), 3);
+      const want = Math.atan2(dy, dx);
+      travelDir = {x: Math.cos(want), y: Math.sin(want)};
+      vel.x += travelDir.x * 0.55 * p;
+      vel.y += travelDir.y * 0.55 * p;
+      S.pulse += (p - S.pulse)*0.4;
+      // wake puff on strong pulses
+      if (p > 0.85 && Math.random() < 0.3) {
+        ambient.push({x: S.pos.x - travelDir.x*70*SC, y: S.pos.y - travelDir.y*70*SC, r: 2.5+Math.random()*4, s: 0.3+Math.random()*0.4, w: Math.random()*6.28});
+        if (ambient.length > 34) ambient.shift();
+      }
+    }
+    if (dist < 70) S.pulse *= 0.9;
+    vel.x *= 0.972; vel.y *= 0.972;   // glidey drag
+    S.pos.x += vel.x; S.pos.y += vel.y;
+  } else if (!surprise) {
+    S.pulse *= 0.9;
+  }
+  // arms partially stream with each swim pulse (full streaming is the escape jet)
+  if (!surprise) {
+    const targetJet = travelDir ? S.pulse * 0.45 : 0;
+    S.jetAmt += (targetJet - S.jetAmt) * 0.15;
+    if (travelDir) S.jetDir = travelDir;
+    else if (S.jetAmt < 0.03) S.jetDir = null;
+  }
+  S.pos.x = Math.max(200*SC, Math.min(W-200*SC, S.pos.x));
+  S.pos.y = Math.max(170*SC, Math.min(H-300*SC, S.pos.y));
+
+  // --- arm reach targets ---
+  for (const a of S.arms) a._claimed = false;
+  for (const p of pts) {
+    if (p.mode !== 'arm') continue;
+    const a = S.arms[p.armIdx];
+    a.reachTarget = {x: p.x, y: p.y};
+    a._claimed = true;
+  }
+  for (const a of S.arms) {
+    const want = a._claimed ? 1 : 0;
+    a.reach += (want - a.reach) * 0.11;
+    if (a.reach < 0.01) a.reach = 0;
+  }
+
+  // --- head hold: hue shifts NOW; the ring buffer makes it flow down the arms live ---
+  const holdingHead = pts.some(p => p.mode === 'head');
+  S.holding = holdingHead;
+  if (holdingHead) {
+    if (holdStart < 0) holdStart = t;
+    S.hueNow = (S.hueNow + 52*0.016) % 360;
+  } else {
+    holdStart = -1;
+    S.hue = S.hueNow;
+  }
+  histIdx = (histIdx + 1) % HIST_N;
+  hueHist[histIdx] = S.hueNow;
+
+  suckerGlows = suckerGlows.filter(g => g.life > 0);
+  for (const g of suckerGlows) { g.r += 1.6; g.life -= 0.055; }
+  inkClouds = inkClouds.filter(c => c.life > 0);
+  for (const c of inkClouds) { c.r += c.vr*0.016; c.vr *= 0.94; c.life -= 0.0068; c.x += (Math.random()-0.5)*0.5; c.y += (Math.random()-0.5)*0.5 - 0.15; }
+  for (const b of ambient) { b.y -= b.s; b.x += Math.sin(t*2+b.w)*0.3; if (b.y < -15) { b.y = H+15; b.x = Math.random()*W; } }
+}
+
+function drawBubble(x, y, r, alpha) {
+  if (!isFinite(x)||!isFinite(y)||!isFinite(r)||r<=0) return;
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#B5D4F4'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+  ctx.fillStyle = 'rgba(230,241,251,0.13)';
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.beginPath(); ctx.arc(x-r*0.3, y-r*0.3, r*0.22, 0, 6.2832); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  if (APP.cur !== 'o') { requestAnimationFrame(draw); return; }
+  try {
+    ctx.fillStyle = '#1A0F40'; ctx.fillRect(0, 0, W, H);
+    for (let i = 0; i < 3; i++) {
+      const hue = (t*8 + i*120) % 360;
+      const gx = W*(0.2+i*0.3) + Math.sin(t*0.3+i)*W*0.15;
+      const gy = H*(0.3+i*0.15) + Math.cos(t*0.25+i)*H*0.15;
+      const gg = ctx.createRadialGradient(gx, gy, 0, gx, gy, 320);
+      gg.addColorStop(0, 'hsla('+hue+',60%,52%,0.07)');
+      gg.addColorStop(1, 'hsla('+hue+',60%,52%,0)');
+      ctx.fillStyle = gg;
+      ctx.beginPath(); ctx.arc(gx, gy, 320, 0, 6.2832); ctx.fill();
+    }
+    for (const b of ambient) drawBubble(b.x, b.y, b.r, 0.32);
+
+    // jet wake bubbles while dashing
+    if (S.jetAmt > 0.3 && S.jetDir) {
+      for (let k = 0; k < 2; k++) {
+        if (Math.random() < 0.7) {
+          drawBubble(
+            S.pos.x - S.jetDir.x*(60+Math.random()*90)*SC + (Math.random()-0.5)*40,
+            S.pos.y - S.jetDir.y*(60+Math.random()*90)*SC + (Math.random()-0.5)*40,
+            3+Math.random()*7, 0.5);
+        }
+      }
+    }
+
+    octoDraw(ctx, S, SC);
+
+    // ink clouds IN FRONT (she jets away from them)
+    for (const c of inkClouds) {
+      const ig = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
+      ig.addColorStop(0, 'rgba(34,12,64,'+(0.9*c.life)+')');
+      ig.addColorStop(0.55, 'rgba(58,24,100,'+(0.62*c.life)+')');
+      ig.addColorStop(1, 'rgba(34,12,64,0)');
+      ctx.fillStyle = ig;
+      ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 6.2832); ctx.fill();
+    }
+
+    for (const g of suckerGlows) {
+      const pg = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
+      pg.addColorStop(0, 'hsla('+g.hue+',88%,82%,'+(0.75*g.life)+')');
+      pg.addColorStop(0.5, 'hsla('+g.hue+',88%,82%,'+(0.3*g.life)+')');
+      pg.addColorStop(1, 'hsla('+g.hue+',88%,82%,0)');
+      ctx.fillStyle = pg;
+      ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, 6.2832); ctx.fill();
+    }
+
+    step();
+  } catch (err) { ptrs.clear(); holdStart = -1; }
+  requestAnimationFrame(draw);
+}
+
+function toCanvas(e) {
+  const r = cv.getBoundingClientRect();
+  return {x: (e.clientX-r.left)/r.width*W, y: (e.clientY-r.top)/r.height*H};
+}
+
+cv.addEventListener('pointerdown', e => {
+  const p = toCanvas(e);
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+
+  // suckers: immediate (a tap directly on her is never a swipe)
+  const chains = currentChains();
+  for (let i = 0; i < S.arms.length; i++) {
+    const sks = octoSuckerPositions(S.arms[i], chains[i], SC);
+    for (const s of sks) {
+      if (Math.hypot(p.x - s.x, p.y - s.y) < Math.max(15*SC, s.r*2.2)) {
+        suckerGlows.push({x: s.x, y: s.y, r: s.r*1.8, life: 1, hue: S.hueNow});
+        S.arms[i].suckerPop = s.idx;
+        setTimeout(() => { S.arms[i].suckerPop = -1; }, 260);
+        pop(420 + Math.random()*260);
+        ptrs.set(e.pointerId, {x: p.x, y: p.y, mode: 'sucker', startT: t, startPos: {x: p.x, y: p.y}});
+        return;
+      }
+    }
+  }
+  // head: immediate
+  const dHead = Math.hypot(p.x - S.pos.x, p.y - (S.pos.y - S.bodyH*0.1));
+  if (dHead < S.bodyW * 0.95) {
+    ptrs.set(e.pointerId, {x: p.x, y: p.y, mode: 'head', startT: t, startPos: {x: p.x, y: p.y}});
+    return;
+  }
+  // everything else starts PENDING; step() decides swipe vs arm-hold from motion
+  ptrs.set(e.pointerId, {x: p.x, y: p.y, mode: 'pending', startT: t, startPos: {x: p.x, y: p.y}});
+});
+cv.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  const p = toCanvas(e);
+  const pt = ptrs.get(e.pointerId);
+  pt.x = p.x; pt.y = p.y;
+});
+function endPtr(e) {
+  const pt = ptrs.get(e.pointerId);
+  if (pt) {
+    if (pt.mode === 'arm' && pt.armIdx !== undefined && S.arms[pt.armIdx].reach > 0.35) {
+      S.arms[pt.armIdx].waveEnd = t + 1.2;
+    }
+    ptrs.delete(e.pointerId);
+  }
+}
+cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointercancel', endPtr);
+document.getElementById('wave-o').addEventListener('input', e => waveKnob = parseFloat(e.target.value));
+document.getElementById('ink-o').addEventListener('click', () => startSurprise());
+draw();
+})();
+
 </script>
