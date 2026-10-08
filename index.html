@@ -2381,11 +2381,41 @@ S.hueAt = function(delaySec) {
 };
 
 // tiny WebAudio pops
+// Phones only let sound start from a finished tap (touchend / pointerup / click), never from the moment a
+// finger lands (pointerdown), which is when a sucker pops. So audio is unlocked on every finished tap
+// anywhere on the page (tapping the Octo tab counts), and woken again after iOS interrupts it (a call,
+// switching apps). audioSession 'playback' (iOS 17+) lets the pops play with the ringer switch on silent.
 let AC = null;
+function audioCtx() {
+  if (!AC) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (err) {}
+    AC = new Ctx();
+  }
+  return AC;
+}
+function wakeAudio() {
+  if (!AC || AC.state === 'running') return;
+  try { const r = AC.resume(); if (r && r.catch) r.catch(() => {}); } catch (err) {}
+}
+function unlockAudio() {
+  try {
+    if (!audioCtx() || AC.state === 'running') return;
+    wakeAudio();
+    // a silent one-sample sound started inside the gesture completes the unlock on older iPhones
+    const b = AC.createBuffer(1, 1, 22050), s = AC.createBufferSource();
+    s.buffer = b; s.connect(AC.destination); s.start(0);
+  } catch (err) {}
+}
+for (const ev of ['pointerup', 'touchend', 'click', 'keydown'])
+  document.addEventListener(ev, unlockAudio, {capture: true, passive: true});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) wakeAudio(); });
+
 function pop(pitch) {
   try {
-    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
-    if (AC.state === 'suspended') AC.resume();
+    if (!audioCtx()) return;
+    wakeAudio();
     const o = AC.createOscillator(), g = AC.createGain();
     o.type = 'sine';
     o.frequency.setValueAtTime(pitch, AC.currentTime);
