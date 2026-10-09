@@ -1,123 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Immortal Aquarium</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Aquarium">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#03142a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
 <style>
 :root{
-  --ink:#03142a; --water:#02182e; --pearl:#eaf0fa; --mist:#8fa8c7;
-  --lav:#cecbf6; --aqua:#7fd8c9;
+  --ink:#03142a; --pearl:#eaf0fa; --mist:#a9bdd8; --lav:#cecbf6; --aqua:#7fd8c9;
+  --glass:rgba(3,20,42,.46); --glass-line:rgba(206,203,246,.26);
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
 }
-html,body{background:var(--ink);}
-body{font-family:ui-rounded,-apple-system,BlinkMacSystemFont,"SF Pro Rounded",system-ui,sans-serif;color:var(--pearl);margin:0;padding:0 16px 48px;}
-.wrap{max-width:860px;margin:0 auto;}
-header{padding:28px 4px 18px;}
-h1{font-size:26px;font-weight:600;margin:0;letter-spacing:.01em;text-wrap:balance;}
-h1 .spark{background:linear-gradient(100deg,var(--lav),var(--aqua),#f4c0d1);-webkit-background-clip:text;background-clip:text;color:transparent;}
-.sub{color:var(--mist);font-size:14px;margin:6px 0 0;line-height:1.5;max-width:56ch;}
-.tabs{display:flex;gap:8px;margin:18px 0 12px;}
-.tab{flex:1;padding:10px 6px;border-radius:999px;border:1px solid rgba(206,203,246,.25);background:transparent;color:var(--mist);font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;}
-.tab:focus-visible{outline:2px solid var(--aqua);outline-offset:2px;}
-.tab.on{background:rgba(206,203,246,.14);color:var(--pearl);border-color:rgba(206,203,246,.55);}
-.hint{color:var(--mist);font-size:13px;margin:0 0 10px;letter-spacing:.02em;}
-.hint b{color:var(--lav);font-weight:600;}
-.tank-sec{display:none;}
+html,body{margin:0;height:100%;background:var(--ink);overflow:hidden;overscroll-behavior:none;}
+body{position:fixed;inset:0;font-family:ui-rounded,-apple-system,BlinkMacSystemFont,"SF Pro Rounded",system-ui,sans-serif;color:var(--pearl);
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+
+/* one tank fills the screen; only the chosen character's tank is shown */
+.tank-sec{position:fixed;inset:0;display:none;background:var(--water,#02182e);}
 .tank-sec.on{display:block;}
-.tankbox{border-radius:18px;overflow:hidden;border:1px solid rgba(143,168,199,.22);}
-canvas{width:100%;display:block;touch-action:none;cursor:grab;}
-.ctrls{display:flex;align-items:center;gap:12px;margin-top:12px;}
-.ctrls label{font-size:13px;color:var(--mist);white-space:nowrap;}
-.ctrls input[type=range]{flex:1;accent-color:#a89fe8;min-width:60px;}
-.btn{padding:9px 16px;border-radius:999px;border:1px solid rgba(206,203,246,.4);background:rgba(206,203,246,.1);color:var(--pearl);font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;}
-.btn:active{transform:scale(.97);}
-.btn:focus-visible{outline:2px solid var(--aqua);outline-offset:2px;}
-footer{color:var(--mist);font-size:12px;margin-top:26px;line-height:1.6;}
+.tank-sec canvas{position:absolute;display:block;touch-action:none;}
+
+/* floating glass controls over the water */
+.glass{background:var(--glass);border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);}
+.brand{position:fixed;top:calc(var(--safe-t) + 14px);left:calc(var(--safe-l) + 18px);margin:0;font-size:17px;font-weight:600;letter-spacing:.01em;pointer-events:none;z-index:3;text-shadow:0 1px 8px rgba(0,0,0,.35);}
+.brand .spark{background:linear-gradient(100deg,var(--lav),var(--aqua),#f4c0d1);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.hud{position:absolute;inset:0;pointer-events:none;z-index:2;}
+.hint{position:absolute;top:calc(var(--safe-t) + 48px);left:calc(var(--safe-l) + 16px);max-width:min(46ch,calc(100% - 32px));margin:0;padding:9px 14px;border-radius:14px;
+  font-size:14px;line-height:1.45;color:var(--pearl);opacity:0;transform:translateY(-4px);transition:opacity .6s,transform .6s;}
+.hint.show{opacity:1;transform:none;}
+.hint b{color:var(--lav);font-weight:600;}
+.ctrls{position:absolute;top:calc(var(--safe-t) + 10px);right:calc(var(--safe-r) + 14px);display:flex;align-items:flex-start;gap:8px;pointer-events:auto;}
+.btn,.adjust>summary{padding:9px 15px;border-radius:999px;color:var(--pearl);font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;list-style:none;}
+.btn:active,.pick:active{transform:scale(.96);}
+.adjust>summary::-webkit-details-marker{display:none;}
+.adjust{position:relative;}
+.adjust .panel{position:absolute;right:0;top:calc(100% + 8px);display:grid;gap:8px;padding:12px 14px;border-radius:14px;width:220px;}
+.adjust label{font-size:13px;color:var(--mist);}
+.adjust input[type=range]{width:100%;accent-color:#a89fe8;}
+.btn:focus-visible,.adjust>summary:focus-visible,.pick:focus-visible{outline:2px solid var(--aqua);outline-offset:2px;}
+
+/* character picker */
+.picker{position:fixed;left:50%;bottom:calc(var(--safe-b) + 12px);transform:translateX(-50%);z-index:3;display:flex;gap:2px;padding:6px;border-radius:28px;max-width:calc(100% - 20px);}
+.pick{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 9px 5px;border:0;border-radius:22px;background:transparent;color:var(--mist);font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s,color .2s;}
+/* each button is a little portrait of the character, cut from a render of its own tank */
+.pick .sw{width:58px;height:58px;border-radius:50%;flex:none;background-size:cover;background-position:center;border:2px solid rgba(206,203,246,.22);box-shadow:0 2px 8px rgba(0,0,0,.35);transition:transform .2s,border-color .2s,box-shadow .2s;}
+.pick.on{background:rgba(206,203,246,.16);color:var(--pearl);}
+.pick.on .sw{border-color:var(--lav);box-shadow:0 0 0 3px rgba(206,203,246,.3),0 2px 10px rgba(0,0,0,.4);transform:scale(1.06);}
+#tab-b .sw{background-image:url(data:image/webp;base64,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);}
+#tab-p .sw{background-image:url(data:image/webp;base64,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);}
+#tab-s .sw{background-image:url(data:image/webp;base64,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);}
+#tab-a .sw{background-image:url(data:image/webp;base64,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);}
+#tab-o .sw{background-image:url(data:image/webp;base64,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);}
+@media (max-width:560px){
+  .pick{gap:3px;padding:5px 4px 4px;font-size:11px;}
+  .pick .sw{width:46px;height:46px;}
+  .brand{font-size:15px;}
+  .ctrls{flex-direction:column;align-items:flex-end;}
+  .hint{top:calc(var(--safe-t) + 104px);}
+}
+@media (prefers-reduced-motion:reduce){.hint{transition:none;}}
 </style>
-<div class="wrap">
-<header>
-<h1>Immortal <span class="spark">Aquarium</span></h1>
-<p class="sub">Touch prototype — five tankmates, one per tab. Best held in one hand, poked with the other.</p>
-</header>
+</head>
+<body>
+<h1 class="brand">Immortal <span class="spark">Aquarium</span></h1>
 
-<div class="tabs" role="tablist">
-<button class="tab on" id="tab-b" role="tab" aria-selected="true">Bubbles</button>
-<button class="tab" id="tab-p" role="tab" aria-selected="false">Poppy</button>
-<button class="tab" id="tab-s" role="tab" aria-selected="false">Slink</button>
-<button class="tab" id="tab-a" role="tab" aria-selected="false">Angler</button>
-<button class="tab" id="tab-o" role="tab" aria-selected="false">Octo</button>
-</div>
-
-<section class="tank-sec on" id="sec-b">
-<p class="hint"><b>Pet</b> his head with a finger &middot; <b>pull</b> his body to stretch him</p>
-<div class="tankbox" style="background:#0C447C;"><canvas id="tank-b"></canvas></div>
+<section class="tank-sec on" id="sec-b" style="--water:#0C447C;">
+<canvas id="tank-b"></canvas>
+<div class="hud">
+<p class="hint glass"><b>Pet</b> his head with a finger &middot; <b>pull</b> his body to stretch him</p>
 <div class="ctrls">
+<button class="btn glass" id="snack-b">Bubble burst</button>
+<details class="adjust"><summary class="glass">Adjust</summary><div class="panel glass">
 <label for="energy-b">Swim energy</label>
 <input type="range" id="energy-b" min="0.3" max="2" step="0.1" value="1">
-<button class="btn" id="snack-b">Bubble burst</button>
+</div></details>
+</div>
 </div>
 </section>
 
-<section class="tank-sec" id="sec-p">
-<p class="hint"><b>Double-tap</b> to puff &middot; <b>pinch</b> or press-and-hold to squeeze her</p>
-<div class="tankbox" style="background:#042C53;"><canvas id="tank-p"></canvas></div>
+<section class="tank-sec" id="sec-p" style="--water:#042C53;">
+<canvas id="tank-p"></canvas>
+<div class="hud">
+<p class="hint glass"><b>Double-tap</b> to puff &middot; <b>pinch</b> or press-and-hold to squeeze her</p>
 <div class="ctrls">
+<button class="btn glass" id="puff-p">Puff up</button>
+<details class="adjust"><summary class="glass">Adjust</summary><div class="panel glass">
 <label for="flutter-p">Fin flutter</label>
 <input type="range" id="flutter-p" min="0.4" max="2" step="0.1" value="1">
-<button class="btn" id="puff-p">Puff up</button>
+</div></details>
+</div>
 </div>
 </section>
 
-<section class="tank-sec" id="sec-s">
-<p class="hint"><b>Hold both glowing ends</b> with two fingers and <b>circle your fingers</b> on the dots to spin &middot; pull the dots apart to focus the whirl in her middle</p>
-<div class="tankbox" style="background:#02182e;"><canvas id="tank-s"></canvas></div>
+<section class="tank-sec" id="sec-s" style="--water:#02182e;">
+<canvas id="tank-s"></canvas>
+<div class="hud">
+<p class="hint glass"><b>Hold both glowing ends</b> with two fingers and <b>circle your fingers</b> on the dots to spin &middot; pull the dots apart to focus the whirl in her middle</p>
 <div class="ctrls">
+<button class="btn glass" id="spin-s">Spinner demo</button>
+<details class="adjust"><summary class="glass">Adjust</summary><div class="panel glass">
 <label for="pulse-s">Pulse glow</label>
 <input type="range" id="pulse-s" min="0.3" max="2" step="0.1" value="1">
-<button class="btn" id="spin-s">Centripetal spinner demo</button>
+</div></details>
+</div>
 </div>
 </section>
 
-<section class="tank-sec" id="sec-a">
-<p class="hint"><b>Tap</b> his light &middot; <b>pull</b> the light and let go &middot; <b>cover</b> the light with a finger</p>
-<div class="tankbox" style="background:#0A2A54;"><canvas id="tank-a"></canvas></div>
+<section class="tank-sec" id="sec-a" style="--water:#0A2A54;">
+<canvas id="tank-a"></canvas>
+<div class="hud">
+<p class="hint glass"><b>Tap</b> his light &middot; <b>pull</b> the light and let go &middot; <b>cover</b> the light with a finger</p>
 <div class="ctrls">
+<button class="btn glass" id="light-a">Change light color</button>
+<details class="adjust"><summary class="glass">Adjust</summary><div class="panel glass">
 <label for="drift-a">Drift</label>
 <input type="range" id="drift-a" min="0.3" max="2" step="0.1" value="1">
-<button class="btn" id="light-a">Change light color</button>
+</div></details>
+</div>
 </div>
 </section>
 
-<section class="tank-sec" id="sec-o">
-<p class="hint"><b>Hold</b> a finger near an arm &middot; <b>tap</b> her suckers &middot; <b>press-and-hold</b> her head &middot; <b>swipe</b> quickly nearby</p>
-<div class="tankbox" style="background:#1A0F40;"><canvas id="tank-o"></canvas></div>
+<section class="tank-sec" id="sec-o" style="--water:#1A0F40;">
+<canvas id="tank-o"></canvas>
+<div class="hud">
+<p class="hint glass"><b>Hold</b> a finger near an arm &middot; <b>tap</b> her suckers &middot; <b>press-and-hold</b> her head &middot; <b>swipe</b> quickly nearby</p>
 <div class="ctrls">
+<button class="btn glass" id="ink-o">Ink cloud</button>
+<details class="adjust"><summary class="glass">Adjust</summary><div class="panel glass">
 <label for="wave-o">Arm wave</label>
 <input type="range" id="wave-o" min="0.3" max="2" step="0.1" value="1">
-<button class="btn" id="ink-o">Ink cloud</button>
+</div></details>
+</div>
 </div>
 </section>
 
-<footer>Gestures from the storyboard: Bubbles sheds bubbles when petted or pulled; Poppy puffs like a balloon and does the Panic Pete eye-pop; Slink is a centripetal spinner; Angler's light answers taps, tugs and peekaboo; Octo reaches, pops, changes color and jets off in a cloud of ink. Characters pause when their tab is hidden.</footer>
-</div>
+<nav class="picker glass" role="tablist" aria-label="Choose a tankmate">
+<button class="pick tab on" id="tab-b" role="tab" aria-selected="true"><span class="sw"></span>Bubbles</button>
+<button class="pick tab" id="tab-p" role="tab" aria-selected="false"><span class="sw"></span>Poppy</button>
+<button class="pick tab" id="tab-s" role="tab" aria-selected="false"><span class="sw"></span>Slink</button>
+<button class="pick tab" id="tab-a" role="tab" aria-selected="false"><span class="sw"></span>Angler</button>
+<button class="pick tab" id="tab-o" role="tab" aria-selected="false"><span class="sw"></span>Octo</button>
+</nav>
 
 <script>
-const APP = {cur:'b'};
-const PORTRAIT = Math.min(window.innerWidth, window.innerHeight) < 700 && window.innerHeight > window.innerWidth;
-const VW = PORTRAIT ? 760 : 1360, VH = PORTRAIT ? 1050 : 840;
+// ---- shared setup: full-screen tanks, character picker, Home Screen app ----
+const APP = {cur: 'b', canvases: []};
+// Each tank draws in a virtual space shaped like the screen. The size of one unit is fixed when the app opens
+// (760 units across in portrait, 860 tall in landscape), so turning the iPad only reshapes the space:
+// the characters keep their size, their place and whatever they were doing.
+const PORTRAIT = window.innerHeight > window.innerWidth;     // orientation at launch; sets each character's scale
+const UNIT = PORTRAIT ? 760 / Math.max(1, window.innerWidth) : 860 / Math.max(1, window.innerHeight);
+let VW = 0, VH = 0;
+function measure() {
+  VW = Math.max(300, Math.round(window.innerWidth * UNIT));
+  VH = Math.max(300, Math.round(window.innerHeight * UNIT));
+}
+measure();
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Size a tank's canvas to cover the screen, drawing at Retina resolution (capped for older iPads).
+function placeCanvas(cv) {
+  const s = Math.max(innerWidth / VW, innerHeight / VH), w = VW * s, h = VH * s;
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  cv.style.left = (innerWidth - w) / 2 + 'px'; cv.style.top = (innerHeight - h) / 2 + 'px';
+}
+function sizeBacking(cv) {
+  const cover = Math.max(innerWidth / VW, innerHeight / VH);
+  const k = Math.min(Math.max(1, (window.devicePixelRatio || 1) * cover), 2.5, Math.sqrt(3.6e6 / (VW * VH)));
+  cv.width = Math.round(VW * k); cv.height = Math.round(VH * k);
+  cv._k = k; cv._ctx.setTransform(k, 0, 0, k, 0, 0);
+}
+// onResize(fx, fy) is each character's chance to stretch its positions to the new tank shape.
+function fitCanvas(cv, ctx, onResize) {
+  cv._ctx = ctx; cv._onResize = onResize;
+  sizeBacking(cv); APP.canvases.push(cv); placeCanvas(cv);
+}
+function scalePts(fx, fy, ...items) {
+  for (const it of items) {
+    if (!it) continue;
+    for (const p of (Array.isArray(it) ? it : [it])) if (p && isFinite(p.x)) { p.x *= fx; p.y *= fy; }
+  }
+}
+// Restore each tank's base scale before every frame, so a frame that errors halfway can't leave it skewed.
+const _raf = window.requestAnimationFrame.bind(window);
+window.requestAnimationFrame = (cb) => _raf((ts) => { for (const c of APP.canvases) c._ctx.setTransform(c._k, 0, 0, c._k, 0, 0); cb(ts); });
+// Turning the iPad (or any window resize) reshapes every tank in place; nothing restarts.
+let lastVW = VW, lastVH = VH;
+function refit() {
+  measure();
+  if (VW !== lastVW || VH !== lastVH) {
+    const fx = VW / lastVW, fy = VH / lastVH; lastVW = VW; lastVH = VH;
+    for (const c of APP.canvases) { sizeBacking(c); if (c._onResize) { try { c._onResize(fx, fy); } catch (err) {} } }
+  }
+  for (const c of APP.canvases) placeCanvas(c);
+}
+addEventListener('resize', refit);
+addEventListener('orientationchange', () => setTimeout(refit, 300));   // iOS can report the new size a beat late
+document.addEventListener('gesturestart', (e) => e.preventDefault());   // no page pinch-zoom over the tank
+
+// ---- sound, shared by every tank ----
+// Phones only let sound start from a finished tap (touchend / pointerup / click), never from the moment a finger
+// lands, which is when most of the creatures react. So sound is unlocked on every finished tap anywhere on the page
+// (picking a character counts) and woken again after iOS interrupts it (a call, switching apps).
+// audioSession 'playback' (iOS 17+) lets it play with the ringer switch on silent.
+const SFX = (() => {
+  let ac = null, out = null, noiseBuf = null;
+  function ctx() {
+    if (!ac) {
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return null;
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (err) {}
+      ac = new C(); out = ac.createGain(); out.gain.value = 1; out.connect(ac.destination);
+    }
+    return ac;
+  }
+  function wake() {
+    if (!ac || ac.state === 'running') return;
+    try { const r = ac.resume(); if (r && r.catch) r.catch(() => {}); } catch (err) {}
+  }
+  function unlock() {
+    try {
+      if (!ctx() || ac.state === 'running') return;
+      wake();
+      const b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource();   // a silent blip finishes the unlock on older iPhones
+      s.buffer = b; s.connect(ac.destination); s.start(0);
+    } catch (err) {}
+  }
+  for (const ev of ['pointerup', 'touchend', 'click', 'keydown']) document.addEventListener(ev, unlock, {capture: true, passive: true});
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
+  // A pitched sound: f0 -> f1 over `glide` s, fading out by `dur` s; optional wobble (vib Hz deep at vibRate Hz).
+  function tone(o) {
+    try {
+      if (!ctx()) return; wake();
+      const t0 = ac.currentTime + (o.delay || 0), d = o.dur || 0.12;
+      const osc = ac.createOscillator(), g = ac.createGain();
+      osc.type = o.type || 'sine';
+      osc.frequency.setValueAtTime(o.f0, t0);
+      if (o.f1) osc.frequency.exponentialRampToValueAtTime(o.f1, t0 + (o.glide || d * 0.8));
+      if (o.vib) {
+        const lfo = ac.createOscillator(), lg = ac.createGain();
+        lfo.frequency.value = o.vibRate || 18; lg.gain.value = o.vib;
+        lfo.connect(lg); lg.connect(osc.frequency); lfo.start(t0); lfo.stop(t0 + d + 0.05);
+      }
+      const peak = o.gain || 0.1;
+      if (o.attack === 0) g.gain.setValueAtTime(peak, t0);
+      else { g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(peak, t0 + (o.attack || 0.008)); }
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + d);
+      osc.connect(g); g.connect(out); osc.start(t0); osc.stop(t0 + d + 0.01);
+    } catch (err) {}
+  }
+  // A breathy sound (filtered noise): whoosh, pfff, the crack of a pop.
+  function noise(o) {
+    try {
+      if (!ctx()) return; wake();
+      if (!noiseBuf) {
+        noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+        const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      const t0 = ac.currentTime + (o.delay || 0), d = o.dur || 0.2;
+      const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+      src.buffer = noiseBuf; src.loop = true;
+      f.type = o.filter || 'bandpass'; f.Q.value = o.q || 1;
+      f.frequency.setValueAtTime(o.freq || 800, t0);
+      if (o.freq1) f.frequency.exponentialRampToValueAtTime(o.freq1, t0 + d);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(o.gain || 0.08, t0 + (o.attack || 0.01));
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + d);
+      src.connect(f); f.connect(g); g.connect(out); src.start(t0); src.stop(t0 + d + 0.01);
+    } catch (err) {}
+  }
+  return {tone, noise};
+})();
+
+// Character picker. The hint shows for a few seconds; tap the current character again to see it again.
+let hintTimer = 0;
+function showHint() {
+  document.querySelectorAll('.hint').forEach((h) => h.classList.remove('show'));
+  const h = document.querySelector('#sec-' + APP.cur + ' .hint');
+  if (!h) return;
+  h.classList.add('show'); clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => h.classList.remove('show'), 6500);
+}
 for (const k of ['b','p','s','a','o']) {
   document.getElementById('tab-'+k).addEventListener('click', () => {
-    APP.cur = k;
-    for (const j of ['b','p','s','a','o']) {
-      document.getElementById('tab-'+j).classList.toggle('on', j===k);
-      document.getElementById('tab-'+j).setAttribute('aria-selected', j===k);
-      document.getElementById('sec-'+j).classList.toggle('on', j===k);
+    if (APP.cur !== k) {
+      APP.cur = k;
+      for (const j of ['b','p','s','a','o']) {
+        document.getElementById('tab-'+j).classList.toggle('on', j===k);
+        document.getElementById('tab-'+j).setAttribute('aria-selected', j===k);
+        document.getElementById('sec-'+j).classList.toggle('on', j===k);
+      }
+      document.querySelectorAll('.adjust[open]').forEach((d) => d.removeAttribute('open'));
     }
+    showHint();
   });
+}
+showHint();
+
+// Works offline once installed (online, it always loads the newest version).
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 </script>
 
 <script>
 (function(){
 const cv = document.getElementById('tank-b'), ctx = cv.getContext('2d');
-const W = VW, H = VH;
-cv.width = W; cv.height = H;
+let W = VW, H = VH;
+fitCanvas(cv, ctx, (fx, fy) => { W = VW; H = VH; scalePts(fx, fy, spine, head, target, pointer, bubbles, ambient); });
 const N = 42, SP = PORTRAIT ? 14 : 19;
 const BR = PORTRAIT ? 0.78 : 1;
 let spine = [];
@@ -379,8 +577,8 @@ draw();
 <script>
 (function(){
 const cv = document.getElementById('tank-p'), ctx = cv.getContext('2d');
-const W = VW, H = VH;
-cv.width = W; cv.height = H;
+let W = VW, H = VH;
+fitCanvas(cv, ctx, (fx, fy) => { W = VW; H = VH; scalePts(fx, fy, pos, targetP, bubbles, sparks, glows); lastTapX *= fx; lastTapY *= fy; });
 const SC = PORTRAIT ? 0.72 : 1;
 let t = 0, flutter = 1;
 let pos = {x: W*0.4, y: H/2}, vel = {x:0, y:0}, targetP = {x: W*0.65, y: H*0.45};
@@ -475,7 +673,33 @@ function spawnBubbles(x, y, n, big) {
     life: 1, w: Math.random()*6.28});
   if (bubbles.length > 160) bubbles = bubbles.slice(-160);
 }
-function doPuff() { puffT = 1; puffUntil = t+4; spawnBubbles(pos.x, pos.y, 14, true); }
+// Poppy's sounds (played through the shared SFX engine in the setup script). Soft and toy-like: a squeezy
+// pufferfish, not a cartoon explosion.
+const sfx = {
+  blip() { SFX.tone({f0: 520 + Math.random()*240, f1: 980, glide: 0.07, dur: 0.09, gain: 0.05}); },            // a touch: one little bubble
+  puff() {                                                                                                     // gulps water and swells up
+    SFX.noise({freq: 280, freq1: 1500, q: 0.8, dur: 0.45, gain: 0.07, attack: 0.06});
+    SFX.tone({type: 'triangle', f0: 150, f1: 430, glide: 0.38, dur: 0.42, gain: 0.11, attack: 0.03});
+    SFX.tone({f0: 430, f1: 470, glide: 0.1, dur: 0.16, gain: 0.05, delay: 0.36, vib: 30, vibRate: 16});
+  },
+  deflate() {                                                                                                  // lets it all out: a long pfff
+    SFX.noise({freq: 1300, freq1: 240, q: 0.7, dur: 0.65, gain: 0.06, attack: 0.02});
+    SFX.tone({f0: 420, f1: 140, glide: 0.55, dur: 0.6, gain: 0.06, vib: 16, vibRate: 24});
+  },
+  eyes() {                                                                                                     // Panic Pete eye-pop: a springy boing + squeak
+    SFX.tone({f0: 230, f1: 640, glide: 0.12, dur: 0.34, gain: 0.11, vib: 38, vibRate: 13});
+    SFX.tone({type: 'triangle', f0: 1100, f1: 1500, glide: 0.1, dur: 0.14, gain: 0.04, vib: 60, vibRate: 30, delay: 0.02});
+  },
+  squeak() { SFX.tone({type: 'triangle', f0: 1450, f1: 2100, glide: 0.1, dur: 0.13, gain: 0.045, vib: 70, vibRate: 32}); },   // squeezed too long: eek!
+  burst() {                                                                                                    // pop! then a fizz of bubbles
+    SFX.noise({filter: 'highpass', freq: 900, q: 0.5, dur: 0.14, gain: 0.2, attack: 0.002});
+    SFX.tone({f0: 170, f1: 45, glide: 0.16, dur: 0.22, gain: 0.16, attack: 0.003});
+    for (let i = 0; i < 5; i++) { const f = 620 + Math.random()*520; SFX.tone({f0: f, f1: f*1.7, glide: 0.06, dur: 0.08, gain: 0.04, delay: 0.09 + i*0.07}); }
+  },
+  bloop() { SFX.tone({f0: 360, f1: 880, glide: 0.12, dur: 0.17, gain: 0.08}); },                               // reappears somewhere else
+};
+let eyesOut = false, tense = false;
+function doPuff() { puffT = 1; puffUntil = t+4; spawnBubbles(pos.x, pos.y, 14, true); sfx.puff(); }
 let cruise = 2, slowT = 0;
 let heading = 0, legSpd = 1, hesit = 0, bank = 0, wanderW = Math.random()*6.28;
 let grow = 0, popped = -1, appear = 1;
@@ -490,7 +714,7 @@ let nextMove = 3+Math.random()*3;
 
 function step() {
   t += 0.016;
-  if (puffUntil > 0 && t > puffUntil) { puffT = 0; puffUntil = -1; spawnBubbles(pos.x, pos.y, 8, false); }
+  if (puffUntil > 0 && t > puffUntil) { puffT = 0; puffUntil = -1; spawnBubbles(pos.x, pos.y, 8, false); sfx.deflate(); }
   puffV += (puffT-puff)*0.06; puffV *= 0.9; puff += puffV;
   const popT = Math.max(squeeze, pinch.active ? 1 : 0);
   popV += (popT-pop)*0.12; popV *= 0.82; pop += popV;
@@ -503,6 +727,7 @@ function step() {
       pos.y = 170+Math.random()*(H-340);
       vel.x = 0; vel.y = 0; view = 1; slowT = 2; appear = 0;
       spawnBubbles(pos.x, pos.y, 12, false);
+      sfx.bloop();
     }
   } else {
     if (pop > 0.85 && popT >= 1) grow = Math.min(1, grow+0.016/1.8);
@@ -511,7 +736,10 @@ function step() {
       spawnBubbles(pos.x, pos.y-20, 26, true);
       spawnBubbles(pos.x, pos.y, 18, false);
       popped = 1.15;
+      sfx.burst();
     }
+    if (pop > 0.55 && !eyesOut) { eyesOut = true; sfx.eyes(); } else if (pop < 0.25) eyesOut = false;
+    if (grow > 0.5 && !tense) { tense = true; sfx.squeak(); } else if (grow < 0.2) tense = false;
   }
   appear += (1-appear)*0.08;
 
@@ -872,6 +1100,7 @@ cv.addEventListener('pointerdown', e => {
     if (t-lastTap < 0.45 && Math.hypot(p.x-lastTapX, p.y-lastTapY) < 110) { doPuff(); lastTap = -1; }
     else { lastTap = t; lastTapX = p.x; lastTapY = p.y; holdStart = t; }
     spawnBubbles(p.x, p.y, 2, false);
+    sfx.blip();
   }
 });
 cv.addEventListener('pointermove', e => {
@@ -899,8 +1128,8 @@ draw();
 <script>
 (function(){
 const cv = document.getElementById('tank-s'), ctx = cv.getContext('2d');
-const W = VW, H = VH;
-cv.width = W; cv.height = H;
+let W = VW, H = VH;
+fitCanvas(cv, ctx, (fx, fy) => { W = VW; H = VH; scalePts(fx, fy, pos, targetP, endA, endB, anchor, bubbles, sparks, glows); });
 const SC = PORTRAIT ? 0.72 : 1;
 let t = 0, pulse = 1;
 let pos = {x: W/2, y: H/2}, vel = {x:0, y:0}, targetP = {x: W*0.65, y: H*0.45};
@@ -2091,8 +2320,8 @@ function octoDraw(ctx, S, SC) {
 <script>
 (function(){
 const cv = document.getElementById('tank-a'), ctx = cv.getContext('2d');
-const W = VW, H = VH;
-cv.width = W; cv.height = H;
+let W = VW, H = VH;
+fitCanvas(cv, ctx, (fx, fy) => { W = VW; H = VH; scalePts(fx, fy, S.pos, targetP, ambient); });
 const SC = PORTRAIT ? 0.85 : 1.05;
 
 let t = 0, drift = 1;
@@ -2344,8 +2573,8 @@ draw();
 <script>
 (function(){
 const cv = document.getElementById('tank-o'), ctx = cv.getContext('2d');
-const W = VW, H = VH;
-cv.width = W; cv.height = H;
+let W = VW, H = VH;
+fitCanvas(cv, ctx, (fx, fy) => { W = VW; H = VH; scalePts(fx, fy, S.pos, targetP, ambient, inkClouds, suckerGlows); });
 const SC = PORTRAIT ? 0.85 : 1.05;
 
 let t = 0, waveKnob = 1;
@@ -2380,51 +2609,9 @@ S.hueAt = function(delaySec) {
   return hueHist[(histIdx - back + HIST_N*4) % HIST_N];
 };
 
-// tiny WebAudio pops
-// Phones only let sound start from a finished tap (touchend / pointerup / click), never from the moment a
-// finger lands (pointerdown), which is when a sucker pops. So audio is unlocked on every finished tap
-// anywhere on the page (tapping the Octo tab counts), and woken again after iOS interrupts it (a call,
-// switching apps). audioSession 'playback' (iOS 17+) lets the pops play with the ringer switch on silent.
-let AC = null;
-function audioCtx() {
-  if (!AC) {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return null;
-    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (err) {}
-    AC = new Ctx();
-  }
-  return AC;
-}
-function wakeAudio() {
-  if (!AC || AC.state === 'running') return;
-  try { const r = AC.resume(); if (r && r.catch) r.catch(() => {}); } catch (err) {}
-}
-function unlockAudio() {
-  try {
-    if (!audioCtx() || AC.state === 'running') return;
-    wakeAudio();
-    // a silent one-sample sound started inside the gesture completes the unlock on older iPhones
-    const b = AC.createBuffer(1, 1, 22050), s = AC.createBufferSource();
-    s.buffer = b; s.connect(AC.destination); s.start(0);
-  } catch (err) {}
-}
-for (const ev of ['pointerup', 'touchend', 'click', 'keydown'])
-  document.addEventListener(ev, unlockAudio, {capture: true, passive: true});
-document.addEventListener('visibilitychange', () => { if (!document.hidden) wakeAudio(); });
-
+// tiny pops, played through the page's shared sound engine (SFX, in the setup script)
 function pop(pitch) {
-  try {
-    if (!audioCtx()) return;
-    wakeAudio();
-    const o = AC.createOscillator(), g = AC.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(pitch, AC.currentTime);
-    o.frequency.exponentialRampToValueAtTime(pitch*0.55, AC.currentTime + 0.09);
-    g.gain.setValueAtTime(0.12, AC.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.11);
-    o.connect(g); g.connect(AC.destination);
-    o.start(); o.stop(AC.currentTime + 0.12);
-  } catch (err) {}
+  SFX.tone({f0: pitch, f1: pitch*0.55, glide: 0.09, dur: 0.11, gain: 0.12, attack: 0});
 }
 
 function pickTarget() {
